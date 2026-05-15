@@ -1,0 +1,2423 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Team File Tracker Dashboard v2</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap');
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --navy:   #1F3864;
+    --blue:   #2E75B6;
+    --ltblue: #DDEBF7;
+    --green:  #217645;
+    --ltgrn:  #C6EFCE;
+    --dkgrn:  #276221;
+    --red:    #C00000;
+    --ltred:  #FFC7CE;
+    --dkred:  #9C0006;
+    --amber:  #9C5700;
+    --ltamb:  #FFEB9C;
+    --gray:   #595959;
+    --ltgry:  #F2F2F2;
+    --dgray:  #D9D9D9;
+    --bg:     #F0F4FA;
+    --surface:#FFFFFF;
+    --border: #E2E8F4;
+    --text:   #1a202c;
+    --muted:  #6b7280;
+    --font:   'DM Sans', sans-serif;
+    --mono:   'DM Mono', monospace;
+    --radius: 10px;
+    --shadow: 0 2px 12px rgba(31,56,100,0.08);
+    --purple: #6E2F8A;
+    --ltpur:  #EEE0F7;
+  }
+
+  body { font-family: var(--font); background: var(--bg); color: var(--text); font-size: 14px; min-height: 100vh; }
+
+  /* ── LAYOUT ── */
+  .app { display: grid; grid-template-rows: 64px 1fr; min-height: 100vh; }
+
+  header {
+    background: var(--navy); color: white; display: flex; align-items: center;
+    padding: 0 28px; gap: 16px; position: sticky; top: 0; z-index: 100;
+    box-shadow: 0 2px 16px rgba(0,0,0,0.18);
+  }
+  header h1 { font-size: 17px; font-weight: 600; letter-spacing: -0.3px; }
+  header .tag { background: rgba(255,255,255,0.15); font-size: 11px; padding: 3px 10px; border-radius: 20px; }
+  header .spacer { flex: 1; }
+  .today-badge { font-size: 12px; color: rgba(255,255,255,0.7); font-family: var(--mono); }
+
+  /* User info in header */
+  .header-user { display: flex; align-items: center; gap: 8px; font-size: 12px; color: rgba(255,255,255,0.85); cursor: pointer; padding: 6px 12px; border-radius: 8px; transition: background 0.15s; position:relative; }
+  .header-user:hover { background: rgba(255,255,255,0.1); }
+  .user-avatar { width: 30px; height: 30px; border-radius: 50%; background: var(--blue); display: flex; align-items: center; justify-content: center; font-weight: 600; font-size: 13px; color: white; }
+  .role-badge-hdr { font-size: 10px; padding: 1px 7px; border-radius: 10px; font-weight: 600; }
+  .role-admin { background: #FFEB9C; color: #9C5700; }
+  .role-user  { background: #C6EFCE; color: #276221; }
+
+  /* User dropdown */
+  .user-dropdown { position:absolute; top:44px; right:0; background: var(--surface); border:1px solid var(--border); border-radius: var(--radius); box-shadow: 0 8px 24px rgba(0,0,0,0.12); min-width: 200px; z-index:999; display:none; }
+  .user-dropdown.open { display:block; }
+  .user-dropdown .dd-head { padding:14px 16px; border-bottom:1px solid var(--border); }
+  .user-dropdown .dd-head .dd-name { font-weight:600; font-size:13px; color:var(--navy); }
+  .user-dropdown .dd-head .dd-role { font-size:11px; color:var(--muted); margin-top:2px; }
+  .user-dropdown a { display:flex; align-items:center; gap:10px; padding:10px 16px; font-size:13px; color:var(--text); text-decoration:none; cursor:pointer; transition:background 0.1s; }
+  .user-dropdown a:hover { background: var(--ltblue); color:var(--navy); }
+  .user-dropdown a.danger { color:var(--dkred); }
+  .user-dropdown a.danger:hover { background:var(--ltred); }
+  .user-dropdown hr { border:none; border-top:1px solid var(--border); }
+
+  .main { display: grid; grid-template-columns: 220px 1fr; height: calc(100vh - 64px); overflow: hidden; }
+
+  /* ── SIDEBAR ── */
+  nav {
+    background: var(--surface); border-right: 1px solid var(--border);
+    padding: 20px 12px; display: flex; flex-direction: column; gap: 4px;
+    height: 100%; overflow-y: auto; overflow-x: hidden;
+  }
+  nav .nav-label { font-size: 10px; font-weight: 600; color: var(--muted); letter-spacing: 0.8px; text-transform: uppercase; padding: 10px 10px 4px; }
+  nav button {
+    width: 100%; text-align: left; background: none; border: none; cursor: pointer;
+    padding: 9px 12px; border-radius: 8px; font-family: var(--font); font-size: 13px;
+    color: var(--text); display: flex; align-items: center; gap: 10px; transition: all 0.15s;
+  }
+  nav button:hover { background: var(--ltblue); color: var(--navy); }
+  nav button.active { background: var(--navy); color: white; font-weight: 500; }
+  nav button .icon { font-size: 16px; width: 20px; text-align: center; }
+  nav hr { border: none; border-top: 1px solid var(--border); margin: 8px 0; }
+  /* Admin-only nav items */
+  nav button.admin-only { display: none; }
+  body.role-admin nav button.admin-only { display: flex; }
+
+  /* ── CONTENT AREA ── */
+  .content { padding: 24px 28px; overflow-y: auto; overflow-x: auto; height: 100%; }
+
+  /* ── PAGE SECTIONS ── */
+  .page { display: none; }
+  .page.active { display: block; }
+
+  /* ── KPI GRID ── */
+  .kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px,1fr)); gap: 14px; margin-bottom: 24px; }
+  .kpi {
+    background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+    padding: 18px 20px; display: flex; flex-direction: column; gap: 6px;
+    box-shadow: var(--shadow); position: relative; overflow: hidden;
+  }
+  .kpi::before { content:''; position:absolute; top:0; left:0; right:0; height:3px; background: var(--accent, var(--blue)); }
+  .kpi-label { font-size: 11px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.6px; }
+  .kpi-value { font-size: 32px; font-weight: 600; color: var(--accent, var(--navy)); line-height: 1; }
+  .kpi-sub { font-size: 11px; color: var(--muted); }
+
+  /* ── SECTION HEADER ── */
+  .sec-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; flex-wrap: wrap; gap: 10px; }
+  .sec-head h2 { font-size: 15px; font-weight: 600; color: var(--navy); }
+  .sec-head .controls { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+
+  /* ── SEARCH / FILTER ── */
+  input[type=text], input[type=email], input[type=password], input[type=tel], select {
+    font-family: var(--font); font-size: 13px; padding: 7px 12px; border: 1px solid var(--border);
+    border-radius: 8px; outline: none; background: var(--surface); color: var(--text);
+    transition: border 0.15s;
+  }
+  input[type=text]:focus, input[type=email]:focus, input[type=password]:focus, input[type=tel]:focus, select:focus { border-color: var(--blue); }
+  input[type=text] { width: 200px; }
+
+  /* ── TABLE WRAPPER with both scrollbars ── */
+  .tbl-wrap {
+    background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+    overflow-x: auto; overflow-y: auto; box-shadow: var(--shadow);
+    max-height: calc(100vh - 280px);
+  }
+  .tbl-wrap table { width: 100%; border-collapse: collapse; font-size: 12.5px; min-width: 900px; }
+  .tbl-wrap thead th {
+    background: var(--navy); color: white; font-weight: 500; font-size: 11px;
+    padding: 10px 14px; text-align: left; white-space: nowrap;
+    position: sticky; top: 0; z-index: 10;
+  }
+  .tbl-wrap thead th.sortable { cursor: pointer; user-select: none; }
+  .tbl-wrap thead th.sortable:hover { background: var(--blue); }
+  .sort-icon { font-size: 10px; margin-left: 4px; opacity: 0.5; }
+  .sort-icon.asc { opacity: 1; }
+  .sort-icon.desc { opacity: 1; }
+  tbody tr { border-bottom: 1px solid var(--border); transition: background 0.1s; }
+  tbody tr:hover { background: var(--ltblue); }
+  tbody td { padding: 9px 14px; }
+
+  /* ── BADGES ── */
+  .badge { display: inline-block; font-size: 10.5px; font-weight: 600; padding: 2px 9px; border-radius: 20px; white-space: nowrap; }
+  .b-green  { background: var(--ltgrn); color: var(--dkgrn); }
+  .b-blue   { background: var(--ltblue); color: #1F4E79; }
+  .b-amber  { background: var(--ltamb); color: var(--amber); }
+  .b-red    { background: var(--ltred); color: var(--dkred); }
+  .b-gray   { background: var(--dgray); color: var(--gray); }
+  .b-navy   { background: #D6E4F7; color: var(--navy); }
+  .b-purple { background: var(--ltpur); color: var(--purple); }
+
+  /* ── PROGRESS BAR ── */
+  .prog-wrap { width: 80px; height: 6px; background: var(--ltgry); border-radius: 3px; overflow: hidden; display: inline-block; vertical-align: middle; margin-right: 4px; }
+  .prog-fill { height: 100%; background: var(--blue); border-radius: 3px; transition: width 0.4s; }
+
+  /* ── MAIL TABLE ── */
+  .mail-tag { font-size: 10px; font-weight: 600; padding: 2px 8px; border-radius: 12px; }
+  .m-pending   { background: var(--ltamb); color: var(--amber); }
+  .m-resolved  { background: var(--ltgrn); color: var(--dkgrn); }
+  .m-noresponse{ background: var(--ltred); color: var(--dkred); }
+  .m-chaser    { background: #FFE4B5; color: #8B4513; }
+  .m-received  { background: var(--ltgrn); color: var(--dkgrn); }
+
+  /* ── FORM ── */
+  .form-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 28px; box-shadow: var(--shadow); max-width: 960px; }
+  .form-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; margin-bottom: 20px; }
+  .form-grid.two { grid-template-columns: 1fr 1fr; }
+  .form-grid.one { grid-template-columns: 1fr; }
+  .form-group { display: flex; flex-direction: column; gap: 5px; }
+  label { font-size: 12px; font-weight: 500; color: var(--muted); }
+  .form-group input, .form-group select, .form-group textarea { width: 100%; }
+  textarea { font-family: var(--font); font-size: 13px; padding: 7px 12px; border: 1px solid var(--border); border-radius: 8px; outline: none; resize: vertical; }
+  textarea:focus { border-color: var(--blue); }
+  .task-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 14px; margin: 20px 0; }
+  .task-card { border: 1px solid var(--border); border-radius: 8px; padding: 14px; }
+  .task-card h4 { font-size: 12px; font-weight: 600; color: var(--navy); margin-bottom: 10px; border-bottom: 2px solid var(--ltblue); padding-bottom: 6px; }
+  .task-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 8px; }
+
+  /* ── BUTTONS ── */
+  .btn-primary { background: var(--navy); color: white; border: none; padding: 10px 24px; border-radius: 8px; font-family: var(--font); font-size: 13px; font-weight: 500; cursor: pointer; transition: all 0.15s; }
+  .btn-primary:hover { background: var(--blue); }
+  .btn-danger  { background: var(--red); color: white; border: none; padding: 6px 14px; border-radius: 6px; font-family: var(--font); font-size: 12px; cursor: pointer; transition: background 0.15s; }
+  .btn-danger:hover { background: var(--dkred); }
+  .btn-success { background: var(--green); color: white; border: none; padding: 6px 14px; border-radius: 6px; font-family: var(--font); font-size: 12px; cursor: pointer; transition: background 0.15s; }
+  .btn-success:hover { background: var(--dkgrn); }
+  .btn-warning { background: var(--amber); color: white; border: none; padding: 6px 14px; border-radius: 6px; font-family: var(--font); font-size: 12px; cursor: pointer; }
+  .btn-sm { padding: 5px 12px; font-size: 11.5px; }
+  .btn-outline { background: none; border: 1px solid var(--border); color: var(--text); padding: 7px 14px; border-radius: 8px; font-family: var(--font); font-size: 13px; cursor: pointer; transition: all 0.15s; }
+  .btn-outline:hover { border-color: var(--blue); color: var(--blue); }
+  .btn-icon { background: none; border: 1px solid var(--border); color: var(--muted); padding: 5px 9px; border-radius: 6px; cursor: pointer; font-size: 13px; transition: all 0.15s; }
+  .btn-icon:hover { border-color: var(--blue); color: var(--blue); background: var(--ltblue); }
+
+  /* ── OVERDUE ALERT ── */
+  .alert-bar { background: var(--ltred); border: 1px solid var(--ltred); border-left: 4px solid var(--red); border-radius: 8px; padding: 12px 16px; margin-bottom: 20px; display: flex; align-items: center; gap: 10px; font-size: 13px; color: var(--dkred); font-weight: 500; }
+  .info-bar { background: var(--ltblue); border-left: 4px solid var(--blue); border-radius: 8px; padding: 12px 16px; margin-bottom: 20px; display: flex; align-items: center; gap: 10px; font-size: 13px; color: var(--navy); }
+
+  /* ── EMPTY STATE ── */
+  .empty { text-align: center; padding: 48px; color: var(--muted); }
+  .empty .icon { font-size: 36px; margin-bottom: 10px; }
+
+  /* ── CHART BAR ── */
+  .bar-chart { display: flex; flex-direction: column; gap: 10px; }
+  .bar-row { display: grid; grid-template-columns: 160px 1fr 40px; gap: 10px; align-items: center; font-size: 12px; }
+  .bar-bg { height: 22px; background: var(--ltgry); border-radius: 4px; overflow: hidden; }
+  .bar-fill { height: 100%; border-radius: 4px; transition: width 0.6s ease; display: flex; align-items: center; padding-left: 8px; font-size: 10px; font-weight: 600; color: white; }
+
+  .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+  .three-col { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px; }
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px; box-shadow: var(--shadow); }
+  .card h3 { font-size: 13px; font-weight: 600; color: var(--navy); margin-bottom: 16px; }
+
+  /* ── MODAL ── */
+  .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.4); z-index: 1000; display: none; align-items: center; justify-content: center; padding: 20px; }
+  .modal-overlay.open { display: flex; }
+  .modal { background: var(--surface); border-radius: 12px; box-shadow: 0 20px 60px rgba(0,0,0,0.2); max-width: 540px; width: 100%; max-height: 90vh; overflow-y: auto; }
+  .modal-head { padding: 20px 24px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; }
+  .modal-head h3 { font-size: 15px; font-weight: 600; color: var(--navy); }
+  .modal-close { background: none; border: none; font-size: 20px; cursor: pointer; color: var(--muted); line-height: 1; padding: 0; }
+  .modal-body { padding: 24px; }
+  .modal-foot { padding: 16px 24px; border-top: 1px solid var(--border); display: flex; gap: 10px; justify-content: flex-end; }
+
+  /* ── LOGIN PAGE ── */
+  .login-page { min-height: 100vh; background: var(--bg); display: flex; align-items: center; justify-content: center; }
+  .login-card { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 40px; width: 380px; box-shadow: 0 8px 40px rgba(31,56,100,0.12); }
+  .login-logo { display: flex; align-items: center; gap: 10px; margin-bottom: 28px; }
+  .login-logo span { font-size: 28px; }
+  .login-logo h2 { font-size: 18px; font-weight: 700; color: var(--navy); }
+  .login-subtitle { font-size: 13px; color: var(--muted); margin-bottom: 24px; }
+  .login-form-group { margin-bottom: 16px; }
+  .login-form-group label { font-size: 12px; font-weight: 600; color: var(--muted); display: block; margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px; }
+  .login-form-group input { width: 100%; font-size: 14px; padding: 10px 14px; }
+  .login-btn { width: 100%; padding: 12px; font-size: 14px; border-radius: 10px; margin-top: 8px; }
+  .login-err { color: var(--dkred); font-size: 12px; margin-top: 8px; display: none; }
+  .login-users-hint { margin-top: 20px; padding: 14px; background: var(--ltblue); border-radius: 8px; font-size: 11px; color: var(--navy); line-height: 1.6; }
+
+  /* ── USERS PAGE ── */
+  .user-card-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 16px; margin-top: 16px; }
+  .user-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px; box-shadow: var(--shadow); display: flex; gap: 14px; align-items: flex-start; position: relative; }
+  .user-card-avatar { width: 44px; height: 44px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 16px; color: white; flex-shrink: 0; }
+  .user-card-info { flex: 1; min-width: 0; }
+  .user-card-name { font-weight: 600; font-size: 14px; color: var(--navy); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .user-card-email { font-size: 11px; color: var(--muted); margin-top: 2px; }
+  .user-card-meta { margin-top: 8px; display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+  .user-card-actions { display: flex; gap: 6px; margin-top: 12px; }
+  .user-card .current-tag { font-size: 10px; background: var(--ltblue); color: var(--blue); padding: 1px 8px; border-radius: 10px; font-weight: 600; }
+
+  /* ── NOTES / HISTORY ── */
+  .note-timeline { display: flex; flex-direction: column; gap: 12px; }
+  .note-item { background: var(--ltgry); border-radius: 8px; padding: 12px 14px; font-size: 12px; position: relative; }
+  .note-item .note-meta { color: var(--muted); font-size: 11px; margin-top: 4px; }
+  .note-item.note-system { background: var(--ltblue); }
+
+  /* ── ACTIVITY LOG ── */
+  .activity-list { display: flex; flex-direction: column; }
+  .activity-item { display: flex; gap: 12px; align-items: flex-start; padding: 10px 0; border-bottom: 1px solid var(--border); font-size: 12px; }
+  .activity-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--blue); flex-shrink: 0; margin-top: 4px; }
+  .activity-dot.red { background: var(--red); }
+  .activity-dot.green { background: var(--green); }
+  .activity-dot.amber { background: var(--amber); }
+  .activity-time { color: var(--muted); white-space: nowrap; font-family: var(--mono); font-size: 11px; }
+
+  /* ── TABS ── */
+  .tab-bar { display: flex; gap: 4px; border-bottom: 2px solid var(--border); margin-bottom: 20px; }
+  .tab-btn { padding: 8px 18px; border: none; background: none; cursor: pointer; font-family: var(--font); font-size: 13px; color: var(--muted); border-bottom: 2px solid transparent; margin-bottom: -2px; transition: all 0.15s; }
+  .tab-btn.active { color: var(--navy); border-bottom-color: var(--navy); font-weight: 500; }
+  .tab-btn:hover { color: var(--navy); }
+  .tab-pane { display: none; }
+  .tab-pane.active { display: block; }
+
+  /* ── TOOLTIP ── */
+  [data-tip] { position: relative; cursor: help; }
+  [data-tip]::after { content: attr(data-tip); position: absolute; bottom: 110%; left: 50%; transform: translateX(-50%); background: #1a202c; color: white; font-size: 11px; padding: 5px 9px; border-radius: 6px; white-space: nowrap; pointer-events: none; opacity: 0; transition: opacity 0.15s; z-index: 500; }
+  [data-tip]:hover::after { opacity: 1; }
+
+  /* ── DELETE CONFIRM ── */
+  .del-row { background: #FFF0F0 !important; }
+
+  /* ── EXPORT OPTIONS ── */
+  .export-row { display: flex; gap: 8px; }
+
+  /* ── PAGINATION ── */
+  .pagination { display: flex; align-items: center; gap: 6px; margin-top: 14px; justify-content: flex-end; font-size: 12px; }
+  .page-btn { padding: 4px 10px; border: 1px solid var(--border); border-radius: 6px; background: none; cursor: pointer; font-family: var(--font); font-size: 12px; }
+  .page-btn:hover { background: var(--ltblue); }
+  .page-btn.active { background: var(--navy); color: white; border-color: var(--navy); }
+  .page-info { color: var(--muted); }
+
+  /* ── ACCESS DENIED ── */
+  .access-denied { text-align: center; padding: 60px 20px; color: var(--muted); }
+  .access-denied .icon { font-size: 48px; margin-bottom: 12px; }
+  .access-denied h3 { color: var(--navy); margin-bottom: 8px; }
+
+
+  /* ── ACCESS CONTROL ── */
+  .admin-only-btn { display: none !important; }
+  body.role-admin .admin-only-btn { display: inline-flex !important; }
+  .user-only-btn { display: inline-flex; }
+  body.role-admin .user-only-btn { display: none !important; }
+  .permission-tag { font-size: 9px; padding: 1px 6px; border-radius: 8px; font-weight: 600; margin-left: 4px; }
+  .perm-admin { background: #FFEB9C; color: #9C5700; }
+  .perm-user  { background: var(--ltblue); color: var(--blue); }
+  .user-access-bar { background: linear-gradient(135deg,#EBF3FF,#F7FBFF); border:1px solid var(--blue); border-left:4px solid var(--blue); border-radius:8px; padding:10px 16px; margin-bottom:16px; font-size:12px; color:var(--navy); display:flex; align-items:center; gap:10px; }
+
+  /* ── responsive ── */
+  @media(max-width:900px){ .main{grid-template-columns:1fr} nav{display:none} .form-grid{grid-template-columns:1fr 1fr} .task-grid{grid-template-columns:1fr 1fr} .two-col,.three-col{grid-template-columns:1fr} }
+</style>
+</head>
+<body>
+
+<!-- ═══════════════════════════════ LOGIN SCREEN ═══════════════════════════════ -->
+<div id="loginScreen" class="login-page">
+  <div class="login-card">
+    <div class="login-logo"><span>📋</span><h2>Team File Tracker</h2></div>
+    <p class="login-subtitle">Sign in to your account to continue</p>
+    <div class="login-form-group">
+      <label>Username</label>
+      <input type="text" id="li_user" placeholder="Enter username" onkeydown="if(event.key==='Enter')doLogin()">
+    </div>
+    <div class="login-form-group">
+      <label>Password</label>
+      <input type="password" id="li_pass" placeholder="Enter password" onkeydown="if(event.key==='Enter')doLogin()">
+    </div>
+    <div class="login-err" id="loginErr">❌ Invalid username or password.</div>
+    <button class="btn-primary login-btn" onclick="doLogin()">Sign In →</button>
+    <div class="login-users-hint">
+      <strong>Demo Accounts:</strong><br>
+      👑 Admin: <code>admin</code> / <code>admin123</code><br>
+      👤 User: <code>user1</code> / <code>pass123</code><br>
+      👤 User: <code>user2</code> / <code>pass123</code>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════ MAIN APP ═══════════════════════════════ -->
+<div class="app" id="appShell" style="display:none">
+  <header>
+    <span style="font-size:20px">📋</span>
+    <h1>Team File Tracker</h1>
+    <span class="tag">v2 · Live Dashboard</span>
+    <div class="spacer"></div>
+    <span class="today-badge" id="todayBadge"></span>
+    <div class="header-user" onclick="toggleUserMenu()" id="headerUserBtn">
+      <div class="user-avatar" id="hdrAvatar">?</div>
+      <div>
+        <div id="hdrName" style="font-weight:500">User</div>
+        <span class="role-badge-hdr role-user" id="hdrRole">User</span>
+      </div>
+      <span style="font-size:10px;opacity:0.7">▼</span>
+      <div class="user-dropdown" id="userDropdown">
+        <div class="dd-head"><div class="dd-name" id="ddName">User</div><div class="dd-role" id="ddRole">Role</div></div>
+        <a onclick="showPage('profile',null)">👤 My Profile</a>
+        <a onclick="showPage('activity',null)" class="admin-dd">📋 Activity Log</a>
+        <hr>
+        <a onclick="doLogout()" class="danger">🚪 Sign Out</a>
+      </div>
+    </div>
+  </header>
+
+  <div class="main">
+    <nav id="mainNav">
+      <div class="nav-label">Overview</div>
+      <button class="active" onclick="showPage('dashboard',this)"><span class="icon">📊</span>Dashboard</button>
+      <button onclick="showPage('overdue',this)"><span class="icon">🚨</span>Overdue <span id="overdueCount" style="margin-left:auto;background:#FFC7CE;color:#9C0006;font-size:10px;padding:1px 7px;border-radius:10px"></span></button>
+      <hr>
+      <div class="nav-label">Files</div>
+      <button onclick="showPage('active',this)"><span class="icon">📂</span>Active Files</button>
+      <button onclick="showPage('add',this)" id="navAdd" class="admin-only"><span class="icon">➕</span>Add Company</button>
+      <button onclick="showPage('completed',this)"><span class="icon">✅</span>Completed</button>
+      <hr>
+      <div class="nav-label">Communication</div>
+      <button onclick="showPage('mail',this)"><span class="icon">📧</span>Mail Tracker <span id="mailCount" style="margin-left:auto;background:#FFEB9C;color:#9C5700;font-size:10px;padding:1px 7px;border-radius:10px"></span></button>
+      <hr>
+      <div class="nav-label">Admin</div>
+      <button onclick="showPage('users',this)" class="admin-only"><span class="icon">👥</span>User Management</button>
+      <button onclick="showPage('activity',this)" class="admin-only"><span class="icon">📋</span>Activity Log</button>
+      <button onclick="showPage('settings',this)" class="admin-only"><span class="icon">⚙️</span>Settings</button>
+      <hr>
+      <div class="nav-label">Data</div>
+      <button onclick="showPage('export',this)"><span class="icon">📤</span>Export / Import</button>
+    </nav>
+
+    <div class="content" id="mainContent">
+
+      <!-- ═══ DASHBOARD ═══ -->
+      <div class="page active" id="page-dashboard">
+        <div id="dashRoleBar"></div>
+        <div class="sec-head"><h2>Live Dashboard</h2><span class="today-badge" id="dashDate" style="color:var(--muted);font-size:12px"></span></div>
+        <div class="kpi-grid" id="kpiGrid"></div>
+        <div class="two-col" style="margin-bottom:20px">
+          <div class="card">
+            <h3>Status Breakdown (all active tasks)</h3>
+            <div class="bar-chart" id="statusChart"></div>
+          </div>
+          <div class="card">
+            <h3>Mail Action Summary</h3>
+            <div id="mailSummary"></div>
+          </div>
+        </div>
+        <div class="two-col">
+          <div class="card">
+            <h3>Assignment Breakdown</h3>
+            <div class="bar-chart" id="assignChart"></div>
+          </div>
+          <div class="card">
+            <h3>⏰ Upcoming Deadlines (next 14 days)</h3>
+            <div id="upcomingDeadlines"></div>
+          </div>
+        </div>
+        <div class="card" style="margin-top:20px">
+          <h3>Recent Activity</h3>
+          <div class="activity-list" id="dashActivity"></div>
+        </div>
+      </div>
+
+      <!-- ═══ OVERDUE ═══ -->
+      <div class="page" id="page-overdue">
+        <div class="sec-head"><h2>Overdue Tasks</h2></div>
+        <div id="overdueList"></div>
+      </div>
+
+      <!-- ═══ ACTIVE FILES ═══ -->
+      <div class="page" id="page-active">
+        <div class="sec-head">
+          <h2>Active Files</h2>
+          <div class="controls">
+            <input type="text" id="searchInput" placeholder="🔍 Search company…" oninput="renderActive()">
+            <select id="filterAssigned" onchange="renderActive()">
+              <option value="">All assignees</option>
+            </select>
+            <select id="filterTask" onchange="renderActive()">
+              <option value="">All tasks</option>
+            </select>
+            <select id="filterStatus" onchange="renderActive()">
+              <option value="">All statuses</option>
+              <option>Not Yet Started</option><option>In Process</option><option>Internal Review</option>
+              <option>Awaiting Source from Client</option><option>Source Mail Need to Send</option>
+              <option>Missing Received</option><option>Awaiting Query Reply</option>
+              <option>Sent to Client for Approval</option><option>On Hold</option>
+              <option>Source Received</option><option>Awaiting Missing Information</option>
+              <option>Sent Reports to Client</option><option>Awaiting Client Approval</option>
+              <option>Need to Send for Source</option><option>Client Side Bookkeeping</option>
+              <option>Client Side Filing</option><option>Filed CT and CH</option>
+              <option>Completed</option><option>Filed</option><option>Not Applicable</option>
+            </select>
+            <select id="filterType" onchange="renderActive()">
+              <option value="">All types</option>
+              <option>Ltd Company</option><option>LLP</option><option>Sole Trader</option>
+              <option>Partnership</option><option>Charity</option><option>Other</option>
+            </select>
+            <select id="filterProgress" onchange="renderActive()">
+              <option value="">All progress</option>
+              <option value="0">0% (Not started)</option>
+              <option value="low">1–49%</option>
+              <option value="high">50–99%</option>
+              <option value="100">100% Done</option>
+            </select>
+            <button class="btn-outline btn-sm" onclick="clearActiveFilters()">Clear</button>
+            <button class="btn-outline btn-sm admin-only-btn" onclick="openBulkAssign()" title="Bulk assign filtered results">👥 Bulk Assign</button>
+          </div>
+        </div>
+        <div id="activeSummaryBar" style="margin-bottom:10px"></div>
+        <div id="activeQuickStats" style="margin-bottom:10px;display:flex;gap:8px;flex-wrap:wrap"></div>
+        <div class="tbl-wrap"><table id="activeTable">
+          <thead><tr>
+            <th style="width:36px">#</th>
+            <th class="sortable" onclick="sortActive('name')">Company <span class="sort-icon" id="si-name">↕</span></th>
+            <th class="sortable" onclick="sortActive('yearend')">Yr End <span class="sort-icon" id="si-yearend">↕</span></th>
+            <th class="sortable" onclick="sortActive('assigned')">Assigned To <span class="sort-icon" id="si-assigned">↕</span></th>
+            <th>Client</th>
+            <th>BK</th><th>VAT</th><th>PAYE</th><th>Accounts</th><th>CS-01</th><th>SA100</th><th>YE Adj</th>
+            <th class="sortable" onclick="sortActive('progress')">Progress <span class="sort-icon" id="si-progress">↕</span></th>
+            <th>Mail</th>
+            <th style="min-width:160px">Actions</th>
+          </tr></thead>
+          <tbody id="activeTbody"></tbody>
+        </table></div>
+        <div class="pagination" id="activePagination"></div>
+      </div>
+
+      <!-- ═══ ADD / EDIT COMPANY ═══ -->
+      <div class="page" id="page-add">
+        <div id="addAccessDenied" style="display:none" class="access-denied"><div class="icon">🔒</div><h3>Admin Access Required</h3><p>Only admins can add or fully edit company files.<br>You can update task statuses and notes from the Active Files table.</p></div>
+        <div id="addFormWrap">
+          <div class="sec-head" style="margin-bottom:14px">
+            <h2 id="addPageTitle">Add New Company</h2>
+            <div style="display:flex;gap:8px;align-items:center">
+              <button class="btn-outline" onclick="clearForm()">🔄 Clear</button>
+              <button class="btn-outline" style="display:none" id="cancelEditBtn" onclick="cancelEdit()">✖ Cancel</button>
+              <button class="btn-primary" onclick="addCompany()" id="saveCompanyBtn">➕ Add Company</button>
+            </div>
+          </div>
+
+          <div class="form-card" style="margin-bottom:14px">
+            <div style="font-size:13px;font-weight:600;color:var(--navy);margin-bottom:14px">📋 Basic Information</div>
+            <div class="form-grid">
+              <div class="form-group"><label>Company Name *</label><input type="text" id="f_company" placeholder="e.g. Acme Ltd"></div>
+              <div class="form-group"><label>Company Number</label>
+                <div style="display:flex;gap:6px;align-items:center">
+                  <input type="text" id="f_compno" placeholder="12345678" maxlength="10" inputmode="text" autocomplete="off" style="flex:1;font-family:var(--mono);letter-spacing:1px" oninput="onCompNoInput(this.value)" onpaste="setTimeout(()=>onCompNoInput(this.value),10)">
+                  <button type="button" id="chLookupBtn" class="btn-outline btn-sm" onclick="lookupCompaniesHouse()" title="Lookup on Companies House" style="white-space:nowrap;padding:6px 10px">🔍 Lookup</button>
+                </div>
+                <div id="chStatus" style="font-size:11px;margin-top:4px;min-height:16px"></div>
+              </div>
+              <div class="form-group"><label>Accounts Year End</label><input type="date" id="f_yearend"></div>
+              <div class="form-group"><label>Assigned To</label><select id="f_assigned"><option value="">— Select member —</option></select></div>
+              <div class="form-group"><label>Client Name</label><input type="text" id="f_client" placeholder="Client contact name"></div>
+              <div class="form-group"><label>Client Email</label><input type="email" id="f_clientemail" placeholder="client@email.com"></div>
+              <div class="form-group"><label>Client Phone</label><input type="tel" id="f_clientphone" placeholder="+44 ..."></div>
+              <div class="form-group"><label>Priority</label><select id="f_priority"><option>Normal</option><option>High</option><option>Urgent</option><option>Low</option></select></div>
+              <div class="form-group"><label>Company Type</label><select id="f_comptype"><option>Ltd Company</option><option>LLP</option><option>Sole Trader</option><option>Partnership</option><option>Charity</option><option>Other</option></select></div>
+              <div class="form-group"><label>Internal Reference</label><input type="text" id="f_ref" placeholder="Internal ref code"></div>
+            </div>
+            <div class="form-group" style="margin-top:8px"><label>Notes / Memo</label>
+              <textarea id="f_notes" rows="3" style="width:100%;font-family:var(--font);font-size:13px;padding:10px;border:1px solid var(--border);border-radius:8px;outline:none;resize:vertical" placeholder="Any notes about this company…"></textarea>
+            </div>
+          </div>
+
+          <div class="form-card">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+              <div style="font-size:13px;font-weight:600;color:var(--navy)">📁 Task Setup</div>
+              <div style="display:flex;gap:8px">
+                <button class="btn-outline btn-sm" onclick="enableAllTasks()">✅ Enable All</button>
+                <button class="btn-outline btn-sm" onclick="disableAllTasks()">⬛ Disable All</button>
+              </div>
+            </div>
+            <div style="background:var(--ltblue);border-radius:8px;padding:9px 14px;margin-bottom:14px;font-size:12px;color:#1F4E79">
+              💡 <strong>Tip:</strong> Uncheck any task this company doesn't need (e.g. PAYE, SA 100). Disabled tasks are marked <em>Not Applicable</em>.
+            </div>
+            <div class="task-grid" id="taskFormGrid"></div>
+          </div>
+
+          <div style="display:flex;gap:10px;margin-top:14px;justify-content:flex-end">
+            <button class="btn-outline" onclick="clearForm()">🔄 Clear</button>
+            <button class="btn-outline" style="display:none" id="cancelEditBtn2" onclick="cancelEdit()">✖ Cancel Edit</button>
+            <button class="btn-primary" onclick="addCompany()" id="saveCompanyBtn2">➕ Add Company</button>
+          </div>
+        </div><!-- #addFormWrap -->
+      </div>
+
+      <!-- ═══ COMPLETED ═══ -->
+      <div class="page" id="page-completed">
+        <div class="sec-head">
+          <h2>Completed Files</h2>
+          <div class="controls">
+            <input type="text" id="searchCompleted" placeholder="🔍 Search…" oninput="renderCompleted()">
+          </div>
+        </div>
+        <div class="tbl-wrap"><table>
+          <thead><tr><th>#</th><th>Company</th><th>Type</th><th>Priority</th><th>Yr End</th><th>Assigned To</th><th>Client</th><th>Completed</th><th>Notes</th><th>Actions</th></tr></thead>
+          <tbody id="completedTbody"></tbody>
+        </table></div>
+      </div>
+
+      <!-- ═══ MAIL TRACKER ═══ -->
+      <div class="page" id="page-mail">
+        <div class="sec-head">
+          <h2>Mail Follow-Up Tracker</h2>
+          <div class="controls">
+            <input type="text" id="mailSearch" placeholder="🔍 Search…" oninput="renderMail()">
+            <select id="mailFilterStatus" onchange="renderMail()">
+              <option value="">All statuses</option>
+              <option>Pending Reply</option><option>Reply Received</option><option>Chaser Sent</option><option>Resolved</option><option>No Response</option>
+            </select>
+            <button class="btn-primary btn-sm" onclick="openMailForm()">+ Log Mail</button>
+          </div>
+        </div>
+        <div class="tbl-wrap"><table>
+          <thead><tr><th>#</th><th>Company</th><th>Task</th><th>Type</th><th>Details</th><th>Sent</th><th>Follow-up Due</th><th>Status</th><th>Logged By</th><th>Actions</th></tr></thead>
+          <tbody id="mailTbody"></tbody>
+        </table></div>
+      </div>
+
+      <!-- ═══ USER MANAGEMENT (Admin Only) ═══ -->
+      <div class="page" id="page-users">
+        <div class="sec-head">
+          <h2>User Management</h2>
+          <button class="btn-primary btn-sm" onclick="openAddUserModal()">+ Add User</button>
+        </div>
+        <div id="usersContent"></div>
+      </div>
+
+      <!-- ═══ ACTIVITY LOG ═══ -->
+      <div class="page" id="page-activity">
+        <div class="sec-head">
+          <h2>Activity Log</h2>
+          <div class="controls">
+            <select id="actFilter" onchange="renderActivity()">
+              <option value="">All types</option>
+              <option>Company Added</option><option>Company Edited</option><option>Company Deleted</option>
+              <option>Completed</option><option>Mail Logged</option><option>User Added</option>
+            </select>
+            <button class="btn-outline btn-sm" onclick="clearActivity()">Clear Log</button>
+          </div>
+        </div>
+        <div class="card"><div class="activity-list" id="activityList"></div></div>
+      </div>
+
+      <!-- ═══ SETTINGS (Admin Only) ═══ -->
+      <div class="page" id="page-settings">
+        <div class="sec-head"><h2>Settings</h2></div>
+        <div class="form-card" style="max-width:600px">
+          <div style="font-size:13px;font-weight:600;color:var(--navy);margin-bottom:16px">Team Members</div>
+          <div id="teamMembersList"></div>
+          <div style="display:flex;gap:10px;margin-top:14px;align-items:flex-end;flex-wrap:wrap">
+            <div class="form-group" style="flex:1;min-width:160px"><label>New Team Member Name</label><input type="text" id="newMemberInput" placeholder="e.g. Alice Smith"></div>
+            <button class="btn-primary btn-sm" onclick="addTeamMember()">Add Member</button>
+          </div>
+          <hr style="margin:24px 0;border:none;border-top:1px solid var(--border)">
+          <div style="font-size:13px;font-weight:600;color:var(--navy);margin-bottom:8px">🏢 Companies House Integration</div>
+          <div style="font-size:12px;color:var(--muted);margin-bottom:12px">Enter your free API key from <a href="https://developer.company-information.service.gov.uk/" target="_blank" style="color:var(--blue)">Companies House Developer Hub</a>. When set, typing a company number on the Add Company form will auto-fill the name, type, and year end.</div>
+          <div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;margin-bottom:6px">
+            <div class="form-group" style="flex:1;min-width:220px"><label>Companies House API Key</label><input type="text" id="chApiKeyInput" placeholder="Paste your API key here…" style="width:100%;font-family:var(--mono);font-size:12px"></div>
+            <button class="btn-primary btn-sm" onclick="saveCHApiKey()">Save Key</button>
+          </div>
+          <div id="chApiKeyStatus" style="font-size:11px;color:var(--green);min-height:16px"></div>
+          <hr style="margin:24px 0;border:none;border-top:1px solid var(--border)">
+          <div style="font-size:13px;font-weight:600;color:var(--navy);margin-bottom:8px">📋 Main Task Types</div>
+          <div style="font-size:12px;color:var(--muted);margin-bottom:12px">Add or remove the main task columns used across all company files. Removing a task hides it from new entries but preserves existing data.</div>
+          <div id="taskTypesList" style="display:flex;flex-direction:column;gap:8px;margin-bottom:12px"></div>
+          <div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;margin-bottom:6px">
+            <div class="form-group" style="flex:1;min-width:180px"><label>New Task Name</label><input type="text" id="newTaskInput" placeholder="e.g. Corporation Tax" style="width:100%"></div>
+            <button class="btn-primary btn-sm" onclick="addTaskType()">+ Add Task</button>
+          </div>
+          <div id="taskTypeMsg" style="font-size:11px;min-height:16px"></div>
+          <hr style="margin:24px 0;border:none;border-top:1px solid var(--border)">
+          <div style="font-size:13px;font-weight:600;color:var(--navy);margin-bottom:16px">Danger Zone</div>
+          <div style="display:flex;gap:10px;flex-wrap:wrap">
+            <button class="btn-danger" onclick="clearAllData()">⚠ Clear All Data (Reset)</button>
+            <button class="btn-warning" onclick="resetToSeedData()" style="background:var(--amber)">↺ Reset to Original Excel Data</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- ═══ EXPORT / IMPORT ═══ -->
+      <div class="page" id="page-export">
+        <div class="sec-head"><h2>Export / Import Data</h2></div>
+        <div style="display:flex;flex-direction:column;gap:16px;max-width:600px">
+          <div class="card">
+            <h3>📤 Export</h3>
+            <p style="font-size:13px;color:var(--muted);margin-bottom:16px">Download your data in various formats.</p>
+            <div class="export-row">
+              <button class="btn-primary btn-sm" onclick="exportCSV()">📊 Export CSV (Active)</button>
+              <button class="btn-primary btn-sm" style="background:var(--purple)" onclick="exportMailCSV()">📧 Export Mail CSV</button>
+              <button class="btn-primary btn-sm" style="background:var(--green)" onclick="exportJSON()">💾 Export JSON Backup</button>
+            </div>
+          </div>
+          <div class="card">
+            <h3>📥 Import</h3>
+            <p style="font-size:13px;color:var(--muted);margin-bottom:16px">Restore from a previously exported JSON backup.</p>
+            <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+              <input type="file" id="importFile" accept=".json" onchange="importJSON()" style="font-size:13px;flex:1">
+            </div>
+            <div id="importMsg" style="margin-top:10px;font-size:12px"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ═══ PROFILE ═══ -->
+      <div class="page" id="page-profile">
+        <div class="sec-head"><h2>My Profile</h2></div>
+        <div class="form-card" style="max-width:480px" id="profileForm"></div>
+      </div>
+
+    </div><!-- .content -->
+  </div><!-- .main -->
+</div><!-- .app -->
+
+<!-- ═══════════════════ MODALS ═══════════════════ -->
+
+<!-- Mail Modal -->
+<div class="modal-overlay" id="mailModal">
+  <div class="modal">
+    <div class="modal-head"><h3 id="mailModalTitle">Log Mail Entry</h3><button class="modal-close" onclick="closeMail()">✕</button></div>
+    <div class="modal-body">
+      <div class="form-grid two">
+        <div class="form-group"><label>Company</label>
+          <select id="m_company"><option value="">Select…</option></select></div>
+        <div class="form-group"><label>Task</label>
+          <select id="m_task"><option value="">All tasks</option></select></div>
+        <div class="form-group"><label>Mail Type</label>
+          <select id="m_type">
+            <option>Source Request Sent</option><option>Source Received</option>
+            <option>Missing Info Sent</option><option>Query Sent</option>
+            <option>Approval Sent</option><option>Approval Received</option>
+            <option>Chaser Sent</option><option>Other</option>
+          </select></div>
+        <div class="form-group"><label>Status</label>
+          <select id="m_status">
+            <option>Pending Reply</option><option>Reply Received</option>
+            <option>Chaser Sent</option><option>Resolved</option><option>No Response</option>
+          </select></div>
+        <div class="form-group"><label>Date Sent</label><input type="date" id="m_date"></div>
+        <div class="form-group"><label>Follow-up Due</label><input type="date" id="m_followup"></div>
+      </div>
+      <div class="form-group" style="margin-top:12px"><label>Subject / Details</label>
+        <input type="text" id="m_details" placeholder="Brief description of the email" style="width:100%"></div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn-outline" onclick="closeMail()">Cancel</button>
+      <button class="btn-primary" onclick="saveMailEntry()">Save Entry</button>
+    </div>
+  </div>
+</div>
+
+<!-- Add User Modal -->
+<div class="modal-overlay" id="addUserModal">
+  <div class="modal">
+    <div class="modal-head"><h3 id="userModalTitle">Add New User</h3><button class="modal-close" onclick="closeUserModal()">✕</button></div>
+    <div class="modal-body">
+      <div class="form-grid two">
+        <div class="form-group"><label>Full Name *</label><input type="text" id="u_name" placeholder="Alice Smith"></div>
+        <div class="form-group"><label>Username *</label><input type="text" id="u_username" placeholder="alice"></div>
+        <div class="form-group"><label>Email</label><input type="email" id="u_email" placeholder="alice@firm.com"></div>
+        <div class="form-group"><label>Phone</label><input type="tel" id="u_phone" placeholder="+44 ..."></div>
+        <div class="form-group"><label>Role</label>
+          <select id="u_role"><option value="user">User</option><option value="admin">Admin</option></select></div>
+        <div class="form-group"><label>Password *</label><input type="password" id="u_pass" placeholder="Minimum 4 characters"></div>
+      </div>
+      <div id="userModalErr" style="color:var(--dkred);font-size:12px;margin-top:8px;display:none"></div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn-outline" onclick="closeUserModal()">Cancel</button>
+      <button class="btn-primary" onclick="saveUser()" id="saveUserBtn">Add User</button>
+    </div>
+  </div>
+</div>
+
+<!-- Delete Confirm Modal -->
+<div class="modal-overlay" id="deleteModal">
+  <div class="modal" style="max-width:380px">
+    <div class="modal-head"><h3>Confirm Delete</h3><button class="modal-close" onclick="closeDeleteModal()">✕</button></div>
+    <div class="modal-body">
+      <p style="font-size:13px;color:var(--text)" id="deleteModalMsg">Are you sure you want to delete this item? This cannot be undone.</p>
+    </div>
+    <div class="modal-foot">
+      <button class="btn-outline" onclick="closeDeleteModal()">Cancel</button>
+      <button class="btn-danger" onclick="confirmDelete()" id="confirmDeleteBtn">Delete</button>
+    </div>
+  </div>
+</div>
+
+<!-- View Company Modal -->
+<div class="modal-overlay" id="viewModal">
+  <div class="modal" style="max-width:700px">
+    <div class="modal-head"><h3 id="viewModalTitle">Company Details</h3><button class="modal-close" onclick="closeViewModal()">✕</button></div>
+    <div class="modal-body" id="viewModalBody"></div>
+    <div class="modal-foot">
+      <button class="btn-outline" onclick="closeViewModal()">Close</button>
+    </div>
+  </div>
+</div>
+
+
+<!-- User Edit Modal (Notes + Task Status only) -->
+<div class="modal-overlay" id="userEditModal">
+  <div class="modal" style="max-width:680px">
+    <div class="modal-head">
+      <h3 id="userEditTitle">Update File</h3>
+      <button class="modal-close" onclick="closeUserEdit()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="info-bar" style="margin-bottom:16px">
+        👤 <strong>User View</strong> — You can update task statuses and notes. Contact Admin for full edits.
+      </div>
+      <div id="userEditCompanyInfo" style="background:var(--ltblue);border-radius:8px;padding:12px 16px;margin-bottom:16px;font-size:13px"></div>
+      
+      <!-- Task Status Grid -->
+      <div style="font-size:13px;font-weight:600;color:var(--navy);margin-bottom:10px">📁 Task Statuses</div>
+      <div id="userEditTasks" style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:20px"></div>
+
+      <!-- Notes -->
+      <div style="font-size:13px;font-weight:600;color:var(--navy);margin-bottom:8px">📝 Notes</div>
+      <textarea id="userEditNotes" rows="4" placeholder="Add notes or updates…" style="width:100%;font-family:var(--font);font-size:13px;padding:10px 12px;border:1px solid var(--border);border-radius:8px;outline:none;resize:vertical"></textarea>
+    </div>
+    <div class="modal-foot">
+      <button class="btn-outline" onclick="closeUserEdit()">Cancel</button>
+      <button class="btn-primary" onclick="saveUserEdit()">💾 Save Changes</button>
+    </div>
+  </div>
+</div>
+
+<!-- Grant Access Modal (Admin only) -->
+<div class="modal-overlay" id="grantAccessModal">
+  <div class="modal" style="max-width:420px">
+    <div class="modal-head">
+      <h3>Grant Edit Access</h3>
+      <button class="modal-close" onclick="closeGrantAccess()">✕</button>
+    </div>
+    <div class="modal-body">
+      <p style="font-size:13px;color:var(--muted);margin-bottom:16px">Select a user and grant them temporary full-edit access to this company file.</p>
+      <div class="form-group" style="margin-bottom:14px">
+        <label>Company</label>
+        <div id="grantCompanyName" style="font-size:13px;font-weight:600;color:var(--navy);padding:8px 0"></div>
+      </div>
+      <div class="form-group" style="margin-bottom:14px">
+        <label>Grant Access To</label>
+        <select id="grantUserId" style="width:100%">
+          <option value="">Select user…</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Access Level</label>
+        <select id="grantLevel" style="width:100%">
+          <option value="tasks_notes">Tasks & Notes only</option>
+          <option value="full">Full Edit (all fields)</option>
+        </select>
+      </div>
+      <div id="grantMsg" style="margin-top:10px;font-size:12px"></div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn-outline" onclick="closeGrantAccess()">Cancel</button>
+      <button class="btn-primary" onclick="saveGrantAccess()">✅ Grant Access</button>
+    </div>
+  </div>
+</div>
+
+<!-- Bulk Assign Modal -->
+<div class="modal-overlay" id="bulkAssignModal">
+  <div class="modal" style="max-width:400px">
+    <div class="modal-head"><h3>Bulk Assign</h3><button class="modal-close" onclick="closeBulkAssign()">✕</button></div>
+    <div class="modal-body">
+      <p style="font-size:13px;color:var(--muted);margin-bottom:16px">Assign all currently <strong>filtered/visible</strong> companies to a team member.</p>
+      <div class="form-group" style="margin-bottom:8px">
+        <label>Assign To</label>
+        <select id="bulkAssignTarget" style="width:100%">
+          <option value="">Select team member…</option>
+        </select>
+      </div>
+      <div id="bulkAssignCount" style="font-size:12px;color:var(--muted);margin-top:8px"></div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn-outline" onclick="closeBulkAssign()">Cancel</button>
+      <button class="btn-primary" onclick="saveBulkAssign()">✅ Assign</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════════════
+// DATA STORE
+// ═══════════════════════════════════════════════════════════════
+const DEFAULT_TASKS = ['Bookkeeping','VAT','PAYE','Full Accounts','CS-01','SA 100','YE Adjustment'];
+const TASKS_KEY = 'tft_tasks';
+let TASKS = JSON.parse(localStorage.getItem(TASKS_KEY) || 'null') || [...DEFAULT_TASKS];
+const STATUS_OPTS = {
+  'Bookkeeping':   ['Not Yet Started','Source Mail Need to Send','Awaiting Source from Client','In Process','Awaiting Query Reply','Missing Received','Sent to Client for Approval','Internal Review','On Hold','Completed','Filed','Client Side Bookkeeping','Not Applicable'],
+  'VAT':           ['Not Yet Started','Source Mail Need to Send','Awaiting Source from Client','In Process','Missing Received','Sent to Client for Approval','Filed','Internal Review','On Hold','Not Applicable'],
+  'PAYE':          ['Not Yet Started','Source Mail Need to Send','Awaiting Source from Client','In Process','Missing Received','Sent to Client for Approval','Filed','Internal Review','On Hold','Not Applicable'],
+  'Full Accounts': ['Not Yet Started','Need to Send for Source','Source Received','In Process','Awaiting Missing Information','Sent Reports to Client','Awaiting Client Approval','Internal Review','On Hold','Filed CT and CH','Completed','Not Applicable'],
+  'CS-01':         ['Not Yet Started','In Process','Filed','Client Side Filing','Internal Review','Not Applicable'],
+  'SA 100':        ['Not Yet Started','In Process','Filed','Client Side Filing','Internal Review','Not Applicable'],
+  'YE Adjustment': ['Not Yet Started','In Process','Internal Review','Completed','Not Applicable'],
+};
+const MAIL_ACTIONS = ['Awaiting Source from Client','Source Mail Need to Send','Awaiting Query Reply','Missing Received','Sent to Client for Approval','Sent Reports to Client','Awaiting Missing Information','Awaiting Client Approval','Need to Send for Source'];
+
+// ── AUTH STORE ────────────────────────────────────────────────
+let users = JSON.parse(localStorage.getItem('tft_users') || 'null');
+if(!users){
+  users = [
+    {id:'u1', name:'Admin User', username:'admin', email:'admin@firm.com', phone:'', role:'admin', password:'admin123', color:'#C00000'},
+    {id:'u2', name:'Alice Smith', username:'user1', email:'alice@firm.com', phone:'', role:'user', password:'pass123', color:'#2E75B6'},
+    {id:'u3', name:'Bob Jones', username:'user2', email:'bob@firm.com', phone:'', role:'user', password:'pass123', color:'#217645'},
+  ];
+  localStorage.setItem('tft_users', JSON.stringify(users));
+}
+let currentUser = JSON.parse(sessionStorage.getItem('tft_session') || 'null');
+
+// ── APP DATA ──────────────────────────────────────────────────
+
+// ── SEED DATA (from uploaded Excel) ──────────────────────────────────────────
+const SEED_COMPANIES = [{"id": "c001", "name": "Rassi Engineering Ltd", "compno": "13320859", "yearend": "2026-04-30", "assigned": "Athira", "client": "Marwan", "clientemail": "", "clientphone": "", "priority": "Normal", "comptype": "Ltd Company", "notes": "Missing under Review for accounts", "ref": "", "createdBy": "System", "createdAt": "2026-01-01T00:00:00.000Z", "updatedBy": "", "updatedAt": "", "tasks": {"Bookkeeping": {"period": "Feb'26 to Apr'26", "due": "2026-05-25", "status": "Awaiting Source from Client"}, "VAT": {"period": "Feb'26 to Apr'26", "due": "2026-06-07", "status": "In Process"}, "PAYE": {"period": "", "due": "", "status": "Not Applicable"}, "Full Accounts": {"period": "", "due": "2027-01-31", "status": "On Hold"}, "CS-01": {"period": "2027-03-13", "due": "2027-03-27", "status": "Not Yet Started"}, "SA 100": {"period": "", "due": "", "status": "Not Applicable"}, "YE Adjustment": {"period": "2025-04-30", "due": "2026-05-05", "status": "Completed"}}}, {"id": "c002", "name": "Loft.Whole Together Ltd", "compno": "13904814", "yearend": "2026-02-28", "assigned": "Dinesh", "client": "Camilia", "clientemail": "", "clientphone": "", "priority": "Normal", "comptype": "Ltd Company", "notes": "", "ref": "", "createdBy": "System", "createdAt": "2026-01-01T00:00:00.000Z", "updatedBy": "", "updatedAt": "", "tasks": {"Bookkeeping": {"period": "Mar'26 to May'26", "due": "2026-05-25", "status": "Not Yet Started"}, "VAT": {"period": "Mar'26 to May'26", "due": "2026-07-07", "status": "Not Yet Started"}, "PAYE": {"period": "", "due": "", "status": "Not Applicable"}, "Full Accounts": {"period": "", "due": "2026-11-30", "status": "On Hold"}, "CS-01": {"period": "2027-02-08", "due": "2027-02-22", "status": "Not Yet Started"}, "SA 100": {"period": "", "due": "", "status": "Not Applicable"}, "YE Adjustment": {"period": "2025-02-28", "due": "2026-05-10", "status": "In Process"}}}, {"id": "c003", "name": "Brains Software Ltd", "compno": "13567433", "yearend": "2026-08-31", "assigned": "", "client": "Michel Inati", "clientemail": "", "clientphone": "", "priority": "Normal", "comptype": "Ltd Company", "notes": "Need to Update it", "ref": "", "createdBy": "System", "createdAt": "2026-01-01T00:00:00.000Z", "updatedBy": "", "updatedAt": "", "tasks": {"Bookkeeping": {"period": "Sept'25 to Jan'26", "due": "2026-05-25", "status": "Missing Received"}, "VAT": {"period": "", "due": "", "status": "Not Applicable"}, "PAYE": {"period": "", "due": "", "status": "Not Applicable"}, "Full Accounts": {"period": "", "due": "2027-05-31", "status": "Not Yet Started"}, "CS-01": {"period": "2026-08-16", "due": "2026-08-30", "status": "Not Yet Started"}, "SA 100": {"period": "", "due": "", "status": "Not Applicable"}, "YE Adjustment": {"period": "2025-08-31", "due": "2026-05-10", "status": "Internal Review"}}}, {"id": "c004", "name": "Spitfire Inbound Ltd", "compno": "12081925", "yearend": "2025-07-31", "assigned": "Dinesh", "client": "Ari", "clientemail": "", "clientphone": "", "priority": "Normal", "comptype": "Ltd Company", "notes": "Missing under Review", "ref": "", "createdBy": "System", "createdAt": "2026-01-01T00:00:00.000Z", "updatedBy": "", "updatedAt": "", "tasks": {"Bookkeeping": {"period": "", "due": "", "status": "Client Side Bookkeeping"}, "VAT": {"period": "", "due": "", "status": "Client Side Bookkeeping"}, "PAYE": {"period": "May'26", "due": "2026-05-20", "status": "Not Yet Started"}, "Full Accounts": {"period": "", "due": "2026-04-30", "status": "Awaiting Missing Information"}, "CS-01": {"period": "2026-11-18", "due": "2026-12-02", "status": "Not Yet Started"}, "SA 100": {"period": "", "due": "", "status": "Not Applicable"}, "YE Adjustment": {"period": "2024-07-31", "due": "2026-05-10", "status": "Not Yet Started"}}}, {"id": "c005", "name": "Asian College of Teachers Ltd", "compno": "", "yearend": "2027-01-31", "assigned": "", "client": "Sanjib", "clientemail": "", "clientphone": "", "priority": "Normal", "comptype": "Ltd Company", "notes": "", "ref": "", "createdBy": "System", "createdAt": "2026-01-01T00:00:00.000Z", "updatedBy": "", "updatedAt": "", "tasks": {"Bookkeeping": {"period": "", "due": "", "status": "Not Applicable"}, "VAT": {"period": "", "due": "", "status": "Not Applicable"}, "PAYE": {"period": "", "due": "", "status": "Not Applicable"}, "Full Accounts": {"period": "", "due": "2027-10-31", "status": "Not Yet Started"}, "CS-01": {"period": "2027-01-06", "due": "2027-01-20", "status": "Not Yet Started"}, "SA 100": {"period": "", "due": "", "status": "Not Applicable"}, "YE Adjustment": {"period": "", "due": "", "status": "Not Applicable"}}}, {"id": "c006", "name": "IEAC Limited", "compno": "", "yearend": "2027-01-31", "assigned": "", "client": "", "clientemail": "", "clientphone": "", "priority": "Normal", "comptype": "Ltd Company", "notes": "", "ref": "", "createdBy": "System", "createdAt": "2026-01-01T00:00:00.000Z", "updatedBy": "", "updatedAt": "", "tasks": {"Bookkeeping": {"period": "", "due": "", "status": "Not Applicable"}, "VAT": {"period": "", "due": "", "status": "Not Applicable"}, "PAYE": {"period": "", "due": "", "status": "Not Applicable"}, "Full Accounts": {"period": "", "due": "2027-10-31", "status": "Not Yet Started"}, "CS-01": {"period": "2027-03-19", "due": "2027-04-02", "status": "Not Yet Started"}, "SA 100": {"period": "", "due": "", "status": "Not Applicable"}, "YE Adjustment": {"period": "", "due": "", "status": "Not Applicable"}}}, {"id": "c007", "name": "East Bridge College Ltd", "compno": "", "yearend": "2026-09-30", "assigned": "", "client": "", "clientemail": "", "clientphone": "", "priority": "Normal", "comptype": "Ltd Company", "notes": "", "ref": "", "createdBy": "System", "createdAt": "2026-01-01T00:00:00.000Z", "updatedBy": "", "updatedAt": "", "tasks": {"Bookkeeping": {"period": "", "due": "", "status": "Not Applicable"}, "VAT": {"period": "", "due": "", "status": "Not Applicable"}, "PAYE": {"period": "", "due": "", "status": "Not Applicable"}, "Full Accounts": {"period": "", "due": "2027-06-30", "status": "Not Yet Started"}, "CS-01": {"period": "2026-08-19", "due": "2026-09-02", "status": "Not Yet Started"}, "SA 100": {"period": "", "due": "", "status": "Not Applicable"}, "YE Adjustment": {"period": "", "due": "", "status": "Not Applicable"}}}, {"id": "c008", "name": "Newage Dev LLP", "compno": "", "yearend": "2026-03-31", "assigned": "Athira", "client": "Serhii", "clientemail": "", "clientphone": "", "priority": "Normal", "comptype": "Ltd Company", "notes": "", "ref": "", "createdBy": "System", "createdAt": "2026-01-01T00:00:00.000Z", "updatedBy": "", "updatedAt": "", "tasks": {"Bookkeeping": {"period": "", "due": "", "status": "Not Applicable"}, "VAT": {"period": "", "due": "", "status": "Not Applicable"}, "PAYE": {"period": "", "due": "", "status": "Not Applicable"}, "Full Accounts": {"period": "", "due": "2026-12-31", "status": "Awaiting Missing Information"}, "CS-01": {"period": "2027-03-08", "due": "2027-03-22", "status": "Not Yet Started"}, "SA 100": {"period": "", "due": "", "status": "Not Applicable"}, "YE Adjustment": {"period": "", "due": "", "status": "Not Applicable"}}}, {"id": "c009", "name": "Noxbird", "compno": "", "yearend": "2026-06-30", "assigned": "", "client": "Andriy Lomakin", "clientemail": "", "clientphone": "", "priority": "Normal", "comptype": "Ltd Company", "notes": "", "ref": "", "createdBy": "System", "createdAt": "2026-01-01T00:00:00.000Z", "updatedBy": "", "updatedAt": "", "tasks": {"Bookkeeping": {"period": "", "due": "", "status": "Client Side Bookkeeping"}, "VAT": {"period": "", "due": "", "status": "Not Applicable"}, "PAYE": {"period": "", "due": "", "status": "Not Applicable"}, "Full Accounts": {"period": "", "due": "2027-03-31", "status": "Not Yet Started"}, "CS-01": {"period": "2026-06-17", "due": "2026-07-01", "status": "Not Yet Started"}, "SA 100": {"period": "", "due": "", "status": "Not Applicable"}, "YE Adjustment": {"period": "", "due": "", "status": "Not Applicable"}}}, {"id": "c010", "name": "KataFlow Ltd", "compno": "", "yearend": "", "assigned": "", "client": "", "clientemail": "", "clientphone": "", "priority": "Normal", "comptype": "Ltd Company", "notes": "", "ref": "", "createdBy": "System", "createdAt": "2026-01-01T00:00:00.000Z", "updatedBy": "", "updatedAt": "", "tasks": {"Bookkeeping": {"period": "", "due": "", "status": "Awaiting Query Reply"}, "VAT": {"period": "", "due": "", "status": "Not Yet Started"}, "PAYE": {"period": "", "due": "", "status": "Not Yet Started"}, "Full Accounts": {"period": "", "due": "", "status": "Not Yet Started"}, "CS-01": {"period": "", "due": "", "status": "Not Yet Started"}, "SA 100": {"period": "", "due": "", "status": "Not Yet Started"}, "YE Adjustment": {"period": "", "due": "", "status": "Not Yet Started"}}}, {"id": "c011", "name": "Big Ideas - BI Ltd", "compno": "", "yearend": "", "assigned": "", "client": "", "clientemail": "", "clientphone": "", "priority": "Normal", "comptype": "Ltd Company", "notes": "Filed the Accounts", "ref": "", "createdBy": "System", "createdAt": "2026-01-01T00:00:00.000Z", "updatedBy": "", "updatedAt": "", "tasks": {"Bookkeeping": {"period": "", "due": "", "status": "N/A"}, "VAT": {"period": "", "due": "", "status": "N/A"}, "PAYE": {"period": "", "due": "", "status": "N/A"}, "Full Accounts": {"period": "", "due": "", "status": "Completed"}, "CS-01": {"period": "", "due": "", "status": "Not Yet Started"}, "SA 100": {"period": "", "due": "", "status": "N/A"}, "YE Adjustment": {"period": "", "due": "", "status": "N/A"}}}, {"id": "c012", "name": "Intuition Service Ltd", "compno": "", "yearend": "2026-03-31", "assigned": "Athira", "client": "Richard", "clientemail": "", "clientphone": "", "priority": "Normal", "comptype": "Ltd Company", "notes": "Awaiting mail from client for approval for filing", "ref": "", "createdBy": "System", "createdAt": "2026-01-01T00:00:00.000Z", "updatedBy": "", "updatedAt": "", "tasks": {"Bookkeeping": {"period": "", "due": "", "status": "N/A"}, "VAT": {"period": "", "due": "", "status": "N/A"}, "PAYE": {"period": "", "due": "", "status": "N/A"}, "Full Accounts": {"period": "", "due": "2026-12-31", "status": "Sent Reports to Client"}, "CS-01": {"period": "", "due": "2026-03-01", "status": "Not Yet Started"}, "SA 100": {"period": "", "due": "", "status": "N/A"}, "YE Adjustment": {"period": "", "due": "", "status": "N/A"}}}, {"id": "c013", "name": "Fierce Moms Conexus CIC", "compno": "", "yearend": "2026-01-31", "assigned": "", "client": "Peace George", "clientemail": "", "clientphone": "", "priority": "Normal", "comptype": "Ltd Company", "notes": "Awaiting mail from client for Quote", "ref": "", "createdBy": "System", "createdAt": "2026-01-01T00:00:00.000Z", "updatedBy": "", "updatedAt": "", "tasks": {"Bookkeeping": {"period": "", "due": "", "status": "Not Applicable"}, "VAT": {"period": "", "due": "", "status": "Not Applicable"}, "PAYE": {"period": "", "due": "", "status": "Not Applicable"}, "Full Accounts": {"period": "", "due": "2026-10-10", "status": "Awaiting Missing Information"}, "CS-01": {"period": "2027-01-09", "due": "2027-01-23", "status": "Not Yet Started"}, "SA 100": {"period": "", "due": "", "status": "Not Applicable"}, "YE Adjustment": {"period": "", "due": "", "status": "Not Applicable"}}}, {"id": "c014", "name": "The Body Hut Limited", "compno": "", "yearend": "2026-02-28", "assigned": "", "client": "Kim", "clientemail": "", "clientphone": "", "priority": "Normal", "comptype": "Ltd Company", "notes": "", "ref": "", "createdBy": "System", "createdAt": "2026-01-01T00:00:00.000Z", "updatedBy": "", "updatedAt": "", "tasks": {"Bookkeeping": {"period": "", "due": "", "status": "N/A"}, "VAT": {"period": "", "due": "", "status": "N/A"}, "PAYE": {"period": "", "due": "", "status": "N/A"}, "Full Accounts": {"period": "", "due": "2026-11-30", "status": "Not Yet Started"}, "CS-01": {"period": "", "due": "2027-02-06", "status": "Not Yet Started"}, "SA 100": {"period": "", "due": "", "status": "N/A"}, "YE Adjustment": {"period": "", "due": "", "status": "N/A"}}}, {"id": "c015", "name": "ETIC Business Corp UK LLP", "compno": "", "yearend": "2025-05-31", "assigned": "", "client": "Xavier", "clientemail": "", "clientphone": "", "priority": "Normal", "comptype": "Ltd Company", "notes": "", "ref": "", "createdBy": "System", "createdAt": "2026-01-01T00:00:00.000Z", "updatedBy": "", "updatedAt": "", "tasks": {"Bookkeeping": {"period": "", "due": "", "status": "N/A"}, "VAT": {"period": "", "due": "", "status": "N/A"}, "PAYE": {"period": "", "due": "", "status": "N/A"}, "Full Accounts": {"period": "", "due": "2026-02-28", "status": "Not Yet Started"}, "CS-01": {"period": "", "due": "2026-05-05", "status": "Not Yet Started"}, "SA 100": {"period": "", "due": "", "status": "N/A"}, "YE Adjustment": {"period": "", "due": "", "status": "N/A"}}}, {"id": "c016", "name": "Etictrade International LLP", "compno": "", "yearend": "2025-05-31", "assigned": "", "client": "", "clientemail": "", "clientphone": "", "priority": "Normal", "comptype": "Ltd Company", "notes": "", "ref": "", "createdBy": "System", "createdAt": "2026-01-01T00:00:00.000Z", "updatedBy": "", "updatedAt": "", "tasks": {"Bookkeeping": {"period": "", "due": "", "status": "N/A"}, "VAT": {"period": "", "due": "", "status": "N/A"}, "PAYE": {"period": "", "due": "", "status": "N/A"}, "Full Accounts": {"period": "", "due": "2026-02-28", "status": "Not Yet Started"}, "CS-01": {"period": "", "due": "2026-05-23", "status": "Not Yet Started"}, "SA 100": {"period": "", "due": "", "status": "N/A"}, "YE Adjustment": {"period": "", "due": "", "status": "N/A"}}}, {"id": "c017", "name": "Lillypad Press Ltd", "compno": "", "yearend": "2024-11-30", "assigned": "", "client": "Ezoe", "clientemail": "", "clientphone": "", "priority": "Normal", "comptype": "Ltd Company", "notes": "", "ref": "", "createdBy": "System", "createdAt": "2026-01-01T00:00:00.000Z", "updatedBy": "", "updatedAt": "", "tasks": {"Bookkeeping": {"period": "", "due": "", "status": "N/A"}, "VAT": {"period": "", "due": "", "status": "N/A"}, "PAYE": {"period": "", "due": "", "status": "N/A"}, "Full Accounts": {"period": "", "due": "2025-08-31", "status": "Not Yet Started"}, "CS-01": {"period": "", "due": "2026-02-17", "status": "Not Yet Started"}, "SA 100": {"period": "", "due": "", "status": "N/A"}, "YE Adjustment": {"period": "", "due": "", "status": "N/A"}}}, {"id": "c018", "name": "Fetch4Us Limited (Sedici Fashion Design Ltd)", "compno": "", "yearend": "2024-12-31", "assigned": "", "client": "Patrick", "clientemail": "", "clientphone": "", "priority": "Normal", "comptype": "Ltd Company", "notes": "", "ref": "", "createdBy": "System", "createdAt": "2026-01-01T00:00:00.000Z", "updatedBy": "", "updatedAt": "", "tasks": {"Bookkeeping": {"period": "", "due": "", "status": "N/A"}, "VAT": {"period": "", "due": "", "status": "N/A"}, "PAYE": {"period": "", "due": "", "status": "N/A"}, "Full Accounts": {"period": "", "due": "2025-09-30", "status": "Not Yet Started"}, "CS-01": {"period": "", "due": "2026-02-04", "status": "Not Yet Started"}, "SA 100": {"period": "", "due": "", "status": "N/A"}, "YE Adjustment": {"period": "", "due": "", "status": "N/A"}}}, {"id": "c019", "name": "HOIB UK Ltd - Think Circular Ltd", "compno": "", "yearend": "2025-07-31", "assigned": "", "client": "Jonathan Richards", "clientemail": "", "clientphone": "", "priority": "Normal", "comptype": "Ltd Company", "notes": "", "ref": "", "createdBy": "System", "createdAt": "2026-01-01T00:00:00.000Z", "updatedBy": "", "updatedAt": "", "tasks": {"Bookkeeping": {"period": "", "due": "", "status": "N/A"}, "VAT": {"period": "", "due": "", "status": "N/A"}, "PAYE": {"period": "", "due": "", "status": "N/A"}, "Full Accounts": {"period": "", "due": "2026-04-30", "status": "Not Yet Started"}, "CS-01": {"period": "", "due": "2026-02-16", "status": "Not Yet Started"}, "SA 100": {"period": "", "due": "", "status": "N/A"}, "YE Adjustment": {"period": "", "due": "", "status": "N/A"}}}, {"id": "c020", "name": "Wibex Limited", "compno": "", "yearend": "2024-09-30", "assigned": "", "client": "Didier", "clientemail": "", "clientphone": "", "priority": "Normal", "comptype": "Ltd Company", "notes": "", "ref": "", "createdBy": "System", "createdAt": "2026-01-01T00:00:00.000Z", "updatedBy": "", "updatedAt": "", "tasks": {"Bookkeeping": {"period": "", "due": "", "status": "N/A"}, "VAT": {"period": "", "due": "", "status": "N/A"}, "PAYE": {"period": "", "due": "", "status": "N/A"}, "Full Accounts": {"period": "", "due": "2025-06-30", "status": "Not Yet Started"}, "CS-01": {"period": "", "due": "2025-03-18", "status": "Not Yet Started"}, "SA 100": {"period": "", "due": "", "status": "N/A"}, "YE Adjustment": {"period": "", "due": "", "status": "N/A"}}}, {"id": "c021", "name": "Zero2Stars Ltd.", "compno": "", "yearend": "2026-05-31", "assigned": "", "client": "Maurizio", "clientemail": "", "clientphone": "", "priority": "Normal", "comptype": "Ltd Company", "notes": "", "ref": "", "createdBy": "System", "createdAt": "2026-01-01T00:00:00.000Z", "updatedBy": "", "updatedAt": "", "tasks": {"Bookkeeping": {"period": "", "due": "", "status": "N/A"}, "VAT": {"period": "", "due": "", "status": "N/A"}, "PAYE": {"period": "", "due": "", "status": "N/A"}, "Full Accounts": {"period": "", "due": "2027-02-28", "status": "Not Yet Started"}, "CS-01": {"period": "", "due": "2027-02-28", "status": "Not Yet Started"}, "SA 100": {"period": "", "due": "", "status": "N/A"}, "YE Adjustment": {"period": "", "due": "", "status": "N/A"}}}, {"id": "c022", "name": "EMF Manufacturing Limited", "compno": "SC370036", "yearend": "2025-12-31", "assigned": "", "client": "", "clientemail": "", "clientphone": "", "priority": "Normal", "comptype": "Ltd Company", "notes": "", "ref": "", "createdBy": "System", "createdAt": "2026-01-01T00:00:00.000Z", "updatedBy": "", "updatedAt": "", "tasks": {"Bookkeeping": {"period": "", "due": "", "status": "Not Applicable"}, "VAT": {"period": "", "due": "", "status": "Not Applicable"}, "PAYE": {"period": "", "due": "", "status": "Not Applicable"}, "Full Accounts": {"period": "", "due": "2026-09-30", "status": "In Process"}, "CS-01": {"period": "", "due": "", "status": "Not Applicable"}, "SA 100": {"period": "", "due": "", "status": "Not Applicable"}, "YE Adjustment": {"period": "", "due": "", "status": "Not Yet Started"}}}, {"id": "c023", "name": "Moor Lane Laundry Limited", "compno": "13908860", "yearend": "2026-02-28", "assigned": "Dinesh", "client": "Arjun Patel", "clientemail": "", "clientphone": "", "priority": "Normal", "comptype": "Ltd Company", "notes": "", "ref": "", "createdBy": "System", "createdAt": "2026-01-01T00:00:00.000Z", "updatedBy": "", "updatedAt": "", "tasks": {"Bookkeeping": {"period": "", "due": "", "status": "Not Applicable"}, "VAT": {"period": "", "due": "", "status": "Not Applicable"}, "PAYE": {"period": "", "due": "", "status": "Not Applicable"}, "Full Accounts": {"period": "", "due": "2026-11-30", "status": "On Hold"}, "CS-01": {"period": "", "due": "", "status": "Not Applicable"}, "SA 100": {"period": "", "due": "", "status": "Not Applicable"}, "YE Adjustment": {"period": "", "due": "", "status": "Not Yet Started"}}}, {"id": "c024", "name": "Chard Laundry Limited", "compno": "16103571", "yearend": "2025-11-30", "assigned": "Athira", "client": "Arjun Patel", "clientemail": "", "clientphone": "", "priority": "Normal", "comptype": "Ltd Company", "notes": "", "ref": "", "createdBy": "System", "createdAt": "2026-01-01T00:00:00.000Z", "updatedBy": "", "updatedAt": "", "tasks": {"Bookkeeping": {"period": "", "due": "", "status": "Not Applicable"}, "VAT": {"period": "", "due": "", "status": "Not Applicable"}, "PAYE": {"period": "", "due": "", "status": "Not Applicable"}, "Full Accounts": {"period": "", "due": "2026-08-26", "status": "In Process"}, "CS-01": {"period": "", "due": "", "status": "Not Applicable"}, "SA 100": {"period": "", "due": "", "status": "Not Applicable"}, "YE Adjustment": {"period": "", "due": "", "status": "Not Yet Started"}}}];
+const SEED_COMPLETED = [{"id": "cp001", "name": "Spitfire Inbound Ltd", "compno": "", "yearend": "2023-07-31", "assigned": "Ari", "client": "Ari", "clientemail": "", "clientphone": "", "priority": "Normal", "comptype": "Ltd Company", "notes": "", "ref": "", "tasks": {"Bookkeeping": {"period": "", "due": "", "status": "Completed"}, "VAT": {"period": "", "due": "", "status": "Completed"}, "PAYE": {"period": "", "due": "", "status": "Completed"}, "Full Accounts": {"period": "", "due": "", "status": "Completed"}, "CS-01": {"period": "", "due": "", "status": "Completed"}, "SA 100": {"period": "", "due": "", "status": "Completed"}, "YE Adjustment": {"period": "", "due": "", "status": "Completed"}}, "completedDate": "2026-01-01", "completedBy": "System"}, {"id": "cp002", "name": "Nutriwolds Raw Ltd", "compno": "", "yearend": "2023-10-31", "assigned": "James Wigby", "client": "James Wigby", "clientemail": "", "clientphone": "", "priority": "Normal", "comptype": "Ltd Company", "notes": "", "ref": "", "tasks": {"Bookkeeping": {"period": "", "due": "", "status": "Completed"}, "VAT": {"period": "", "due": "", "status": "Completed"}, "PAYE": {"period": "", "due": "", "status": "Completed"}, "Full Accounts": {"period": "", "due": "", "status": "Completed"}, "CS-01": {"period": "", "due": "", "status": "Completed"}, "SA 100": {"period": "", "due": "", "status": "Completed"}, "YE Adjustment": {"period": "", "due": "", "status": "Completed"}}, "completedDate": "2026-01-01", "completedBy": "System"}, {"id": "cp003", "name": "Owl Intuition Service Ltd", "compno": "", "yearend": "", "assigned": "Richard", "client": "Richard", "clientemail": "", "clientphone": "", "priority": "Normal", "comptype": "Ltd Company", "notes": "", "ref": "", "tasks": {"Bookkeeping": {"period": "", "due": "", "status": "Completed"}, "VAT": {"period": "", "due": "", "status": "Completed"}, "PAYE": {"period": "", "due": "", "status": "Completed"}, "Full Accounts": {"period": "", "due": "", "status": "Completed"}, "CS-01": {"period": "", "due": "", "status": "Completed"}, "SA 100": {"period": "", "due": "", "status": "Completed"}, "YE Adjustment": {"period": "", "due": "", "status": "Completed"}}, "completedDate": "2026-01-01", "completedBy": "System"}, {"id": "cp004", "name": "Owl Intuition Service Ltd", "compno": "", "yearend": "2024-03-31", "assigned": "Richard", "client": "Richard", "clientemail": "", "clientphone": "", "priority": "Normal", "comptype": "Ltd Company", "notes": "", "ref": "", "tasks": {"Bookkeeping": {"period": "", "due": "", "status": "Completed"}, "VAT": {"period": "", "due": "", "status": "Completed"}, "PAYE": {"period": "", "due": "", "status": "Completed"}, "Full Accounts": {"period": "", "due": "", "status": "Completed"}, "CS-01": {"period": "", "due": "", "status": "Completed"}, "SA 100": {"period": "", "due": "", "status": "Completed"}, "YE Adjustment": {"period": "", "due": "", "status": "Completed"}}, "completedDate": "2026-01-01", "completedBy": "System"}, {"id": "cp005", "name": "Knightsbridge Chauffeurs Ltd", "compno": "", "yearend": "2023-07-31", "assigned": "Jaouhar Baccouche", "client": "Jaouhar Baccouche", "clientemail": "", "clientphone": "", "priority": "Normal", "comptype": "Ltd Company", "notes": "", "ref": "", "tasks": {"Bookkeeping": {"period": "", "due": "", "status": "Completed"}, "VAT": {"period": "", "due": "", "status": "Completed"}, "PAYE": {"period": "", "due": "", "status": "Completed"}, "Full Accounts": {"period": "", "due": "", "status": "Completed"}, "CS-01": {"period": "", "due": "", "status": "Completed"}, "SA 100": {"period": "", "due": "", "status": "Completed"}, "YE Adjustment": {"period": "", "due": "", "status": "Completed"}}, "completedDate": "2026-01-01", "completedBy": "System"}, {"id": "cp006", "name": "Aero Repairs & Spares Solutions  Ltd", "compno": "", "yearend": "", "assigned": "Rob Henderson", "client": "Rob Henderson", "clientemail": "", "clientphone": "", "priority": "Normal", "comptype": "Ltd Company", "notes": "", "ref": "", "tasks": {"Bookkeeping": {"period": "", "due": "", "status": "Completed"}, "VAT": {"period": "", "due": "", "status": "Completed"}, "PAYE": {"period": "", "due": "", "status": "Completed"}, "Full Accounts": {"period": "", "due": "", "status": "Completed"}, "CS-01": {"period": "", "due": "", "status": "Completed"}, "SA 100": {"period": "", "due": "", "status": "Completed"}, "YE Adjustment": {"period": "", "due": "", "status": "Completed"}}, "completedDate": "2026-01-01", "completedBy": "System"}, {"id": "cp007", "name": "Aero Repairs & Spares Solutions  Ltd", "compno": "", "yearend": "", "assigned": "Rob Henderson", "client": "Rob Henderson", "clientemail": "", "clientphone": "", "priority": "Normal", "comptype": "Ltd Company", "notes": "", "ref": "", "tasks": {"Bookkeeping": {"period": "", "due": "", "status": "Completed"}, "VAT": {"period": "", "due": "", "status": "Completed"}, "PAYE": {"period": "", "due": "", "status": "Completed"}, "Full Accounts": {"period": "", "due": "", "status": "Completed"}, "CS-01": {"period": "", "due": "", "status": "Completed"}, "SA 100": {"period": "", "due": "", "status": "Completed"}, "YE Adjustment": {"period": "", "due": "", "status": "Completed"}}, "completedDate": "2026-01-01", "completedBy": "System"}, {"id": "cp008", "name": "Spitfire Inbound Ltd", "compno": "", "yearend": "2023-07-31", "assigned": "Ari", "client": "Ari", "clientemail": "", "clientphone": "", "priority": "Normal", "comptype": "Ltd Company", "notes": "", "ref": "", "tasks": {"Bookkeeping": {"period": "", "due": "", "status": "Completed"}, "VAT": {"period": "", "due": "", "status": "Completed"}, "PAYE": {"period": "", "due": "", "status": "Completed"}, "Full Accounts": {"period": "", "due": "", "status": "Completed"}, "CS-01": {"period": "", "due": "", "status": "Completed"}, "SA 100": {"period": "", "due": "", "status": "Completed"}, "YE Adjustment": {"period": "", "due": "", "status": "Completed"}}, "completedDate": "2026-01-01", "completedBy": "System"}, {"id": "cp009", "name": "Spitfire Inbound Ltd", "compno": "", "yearend": "", "assigned": "Ari", "client": "Ari", "clientemail": "", "clientphone": "", "priority": "Normal", "comptype": "Ltd Company", "notes": "", "ref": "", "tasks": {"Bookkeeping": {"period": "", "due": "", "status": "Completed"}, "VAT": {"period": "", "due": "", "status": "Completed"}, "PAYE": {"period": "", "due": "", "status": "Completed"}, "Full Accounts": {"period": "", "due": "", "status": "Completed"}, "CS-01": {"period": "", "due": "", "status": "Completed"}, "SA 100": {"period": "", "due": "", "status": "Completed"}, "YE Adjustment": {"period": "", "due": "", "status": "Completed"}}, "completedDate": "2026-01-01", "completedBy": "System"}, {"id": "cp010", "name": "Rassi Engineering Ltd", "compno": "", "yearend": "2024-04-30", "assigned": "Marwan", "client": "Marwan", "clientemail": "", "clientphone": "", "priority": "Normal", "comptype": "Ltd Company", "notes": "", "ref": "", "tasks": {"Bookkeeping": {"period": "", "due": "", "status": "Completed"}, "VAT": {"period": "", "due": "", "status": "Completed"}, "PAYE": {"period": "", "due": "", "status": "Completed"}, "Full Accounts": {"period": "", "due": "", "status": "Completed"}, "CS-01": {"period": "", "due": "", "status": "Completed"}, "SA 100": {"period": "", "due": "", "status": "Completed"}, "YE Adjustment": {"period": "", "due": "", "status": "Completed"}}, "completedDate": "2026-01-01", "completedBy": "System"}, {"id": "cp011", "name": "Rassi Engineering Ltd", "compno": "", "yearend": "2024-04-30", "assigned": "Marwan", "client": "Marwan", "clientemail": "", "clientphone": "", "priority": "Normal", "comptype": "Ltd Company", "notes": "", "ref": "", "tasks": {"Bookkeeping": {"period": "", "due": "", "status": "Completed"}, "VAT": {"period": "", "due": "", "status": "Completed"}, "PAYE": {"period": "", "due": "", "status": "Completed"}, "Full Accounts": {"period": "", "due": "", "status": "Completed"}, "CS-01": {"period": "", "due": "", "status": "Completed"}, "SA 100": {"period": "", "due": "", "status": "Completed"}, "YE Adjustment": {"period": "", "due": "", "status": "Completed"}}, "completedDate": "2026-01-01", "completedBy": "System"}, {"id": "cp012", "name": "Spitfire Inbound Ltd", "compno": "", "yearend": "", "assigned": "Ari", "client": "Ari", "clientemail": "", "clientphone": "", "priority": "Normal", "comptype": "Ltd Company", "notes": "", "ref": "", "tasks": {"Bookkeeping": {"period": "", "due": "", "status": "Completed"}, "VAT": {"period": "", "due": "", "status": "Completed"}, "PAYE": {"period": "", "due": "", "status": "Completed"}, "Full Accounts": {"period": "", "due": "", "status": "Completed"}, "CS-01": {"period": "", "due": "", "status": "Completed"}, "SA 100": {"period": "", "due": "", "status": "Completed"}, "YE Adjustment": {"period": "", "due": "", "status": "Completed"}}, "completedDate": "2026-01-01", "completedBy": "System"}, {"id": "cp013", "name": "Akela Property Ltd (Isle of Man)", "compno": "", "yearend": "2024-03-31", "assigned": "James Wigby", "client": "James Wigby", "clientemail": "", "clientphone": "", "priority": "Normal", "comptype": "Ltd Company", "notes": "", "ref": "", "tasks": {"Bookkeeping": {"period": "", "due": "", "status": "Completed"}, "VAT": {"period": "", "due": "", "status": "Completed"}, "PAYE": {"period": "", "due": "", "status": "Completed"}, "Full Accounts": {"period": "", "due": "", "status": "Completed"}, "CS-01": {"period": "", "due": "", "status": "Completed"}, "SA 100": {"period": "", "due": "", "status": "Completed"}, "YE Adjustment": {"period": "", "due": "", "status": "Completed"}}, "completedDate": "2026-01-01", "completedBy": "System"}, {"id": "cp014", "name": "Zero2Stars Ltd.", "compno": "", "yearend": "", "assigned": "Maurizio", "client": "Maurizio", "clientemail": "", "clientphone": "", "priority": "Normal", "comptype": "Ltd Company", "notes": "", "ref": "", "tasks": {"Bookkeeping": {"period": "", "due": "", "status": "Completed"}, "VAT": {"period": "", "due": "", "status": "Completed"}, "PAYE": {"period": "", "due": "", "status": "Completed"}, "Full Accounts": {"period": "", "due": "", "status": "Completed"}, "CS-01": {"period": "", "due": "", "status": "Completed"}, "SA 100": {"period": "", "due": "", "status": "Completed"}, "YE Adjustment": {"period": "", "due": "", "status": "Completed"}}, "completedDate": "2026-01-01", "completedBy": "System"}, {"id": "cp015", "name": "Wibex Limited", "compno": "", "yearend": "2023-09-30", "assigned": "Didier", "client": "Didier", "clientemail": "", "clientphone": "", "priority": "Normal", "comptype": "Ltd Company", "notes": "", "ref": "", "tasks": {"Bookkeeping": {"period": "", "due": "", "status": "Completed"}, "VAT": {"period": "", "due": "", "status": "Completed"}, "PAYE": {"period": "", "due": "", "status": "Completed"}, "Full Accounts": {"period": "", "due": "", "status": "Completed"}, "CS-01": {"period": "", "due": "", "status": "Completed"}, "SA 100": {"period": "", "due": "", "status": "Completed"}, "YE Adjustment": {"period": "", "due": "", "status": "Completed"}}, "completedDate": "2026-01-01", "completedBy": "System"}, {"id": "cp016", "name": "Chelsea Cleaning Contractors", "compno": "", "yearend": "", "assigned": "Hudson Conway & Co - Chas Roopra", "client": "Hudson Conway & Co - Chas Roopra", "clientemail": "", "clientphone": "", "priority": "Normal", "comptype": "Ltd Company", "notes": "", "ref": "", "tasks": {"Bookkeeping": {"period": "", "due": "", "status": "Completed"}, "VAT": {"period": "", "due": "", "status": "Completed"}, "PAYE": {"period": "", "due": "", "status": "Completed"}, "Full Accounts": {"period": "", "due": "", "status": "Completed"}, "CS-01": {"period": "", "due": "", "status": "Completed"}, "SA 100": {"period": "", "due": "", "status": "Completed"}, "YE Adjustment": {"period": "", "due": "", "status": "Completed"}}, "completedDate": "2026-01-01", "completedBy": "System"}, {"id": "cp017", "name": "Annette Ferguson Ltd", "compno": "", "yearend": "2023-10-31", "assigned": "Annette Ferguson Ltd", "client": "Annette Ferguson Ltd", "clientemail": "", "clientphone": "", "priority": "Normal", "comptype": "Ltd Company", "notes": "", "ref": "", "tasks": {"Bookkeeping": {"period": "", "due": "", "status": "Completed"}, "VAT": {"period": "", "due": "", "status": "Completed"}, "PAYE": {"period": "", "due": "", "status": "Completed"}, "Full Accounts": {"period": "", "due": "", "status": "Completed"}, "CS-01": {"period": "", "due": "", "status": "Completed"}, "SA 100": {"period": "", "due": "", "status": "Completed"}, "YE Adjustment": {"period": "", "due": "", "status": "Completed"}}, "completedDate": "2026-01-01", "completedBy": "System"}, {"id": "cp018", "name": "One Lad Limited", "compno": "", "yearend": "", "assigned": "Annette Ferguson Ltd", "client": "Annette Ferguson Ltd", "clientemail": "", "clientphone": "", "priority": "Normal", "comptype": "Ltd Company", "notes": "", "ref": "", "tasks": {"Bookkeeping": {"period": "", "due": "", "status": "Completed"}, "VAT": {"period": "", "due": "", "status": "Completed"}, "PAYE": {"period": "", "due": "", "status": "Completed"}, "Full Accounts": {"period": "", "due": "", "status": "Completed"}, "CS-01": {"period": "", "due": "", "status": "Completed"}, "SA 100": {"period": "", "due": "", "status": "Completed"}, "YE Adjustment": {"period": "", "due": "", "status": "Completed"}}, "completedDate": "2026-01-01", "completedBy": "System"}, {"id": "cp019", "name": "Redmal Ltd", "compno": "", "yearend": "2024-03-31", "assigned": "Malik", "client": "Malik", "clientemail": "", "clientphone": "", "priority": "Normal", "comptype": "Ltd Company", "notes": "", "ref": "", "tasks": {"Bookkeeping": {"period": "", "due": "", "status": "Completed"}, "VAT": {"period": "", "due": "", "status": "Completed"}, "PAYE": {"period": "", "due": "", "status": "Completed"}, "Full Accounts": {"period": "", "due": "", "status": "Completed"}, "CS-01": {"period": "", "due": "", "status": "Completed"}, "SA 100": {"period": "", "due": "", "status": "Completed"}, "YE Adjustment": {"period": "", "due": "", "status": "Completed"}}, "completedDate": "2026-01-01", "completedBy": "System"}, {"id": "cp020", "name": "Vyne Analytics Ltd", "compno": "", "yearend": "2024-02-28", "assigned": "Annette Ferguson Ltd", "client": "Annette Ferguson Ltd", "clientemail": "", "clientphone": "", "priority": "Normal", "comptype": "Ltd Company", "notes": "", "ref": "", "tasks": {"Bookkeeping": {"period": "", "due": "", "status": "Completed"}, "VAT": {"period": "", "due": "", "status": "Completed"}, "PAYE": {"period": "", "due": "", "status": "Completed"}, "Full Accounts": {"period": "", "due": "", "status": "Completed"}, "CS-01": {"period": "", "due": "", "status": "Completed"}, "SA 100": {"period": "", "due": "", "status": "Completed"}, "YE Adjustment": {"period": "", "due": "", "status": "Completed"}}, "completedDate": "2026-01-01", "completedBy": "System"}, {"id": "cp021", "name": "Pink Cube Ltd", "compno": "", "yearend": "2023-12-31", "assigned": "Annette Ferguson Ltd", "client": "Annette Ferguson Ltd", "clientemail": "", "clientphone": "", "priority": "Normal", "comptype": "Ltd Company", "notes": "", "ref": "", "tasks": {"Bookkeeping": {"period": "", "due": "", "status": "Completed"}, "VAT": {"period": "", "due": "", "status": "Completed"}, "PAYE": {"period": "", "due": "", "status": "Completed"}, "Full Accounts": {"period": "", "due": "", "status": "Completed"}, "CS-01": {"period": "", "due": "", "status": "Completed"}, "SA 100": {"period": "", "due": "", "status": "Completed"}, "YE Adjustment": {"period": "", "due": "", "status": "Completed"}}, "completedDate": "2026-01-01", "completedBy": "System"}, {"id": "cp022", "name": "ETIC Business Corp UK LLP", "compno": "", "yearend": "2024-05-31", "assigned": "Xavier", "client": "Xavier", "clientemail": "", "clientphone": "", "priority": "Normal", "comptype": "Ltd Company", "notes": "", "ref": "", "tasks": {"Bookkeeping": {"period": "", "due": "", "status": "Completed"}, "VAT": {"period": "", "due": "", "status": "Completed"}, "PAYE": {"period": "", "due": "", "status": "Completed"}, "Full Accounts": {"period": "", "due": "", "status": "Completed"}, "CS-01": {"period": "", "due": "", "status": "Completed"}, "SA 100": {"period": "", "due": "", "status": "Completed"}, "YE Adjustment": {"period": "", "due": "", "status": "Completed"}}, "completedDate": "2026-01-01", "completedBy": "System"}, {"id": "cp023", "name": "Etictrade International LLP", "compno": "", "yearend": "", "assigned": "Xavier", "client": "Xavier", "clientemail": "", "clientphone": "", "priority": "Normal", "comptype": "Ltd Company", "notes": "", "ref": "", "tasks": {"Bookkeeping": {"period": "", "due": "", "status": "Completed"}, "VAT": {"period": "", "due": "", "status": "Completed"}, "PAYE": {"period": "", "due": "", "status": "Completed"}, "Full Accounts": {"period": "", "due": "", "status": "Completed"}, "CS-01": {"period": "", "due": "", "status": "Completed"}, "SA 100": {"period": "", "due": "", "status": "Completed"}, "YE Adjustment": {"period": "", "due": "", "status": "Completed"}}, "completedDate": "2026-01-01", "completedBy": "System"}, {"id": "cp024", "name": "Idealure LLP", "compno": "", "yearend": "", "assigned": "Malik", "client": "Malik", "clientemail": "", "clientphone": "", "priority": "Normal", "comptype": "Ltd Company", "notes": "", "ref": "", "tasks": {"Bookkeeping": {"period": "", "due": "", "status": "Completed"}, "VAT": {"period": "", "due": "", "status": "Completed"}, "PAYE": {"period": "", "due": "", "status": "Completed"}, "Full Accounts": {"period": "", "due": "", "status": "Completed"}, "CS-01": {"period": "", "due": "", "status": "Completed"}, "SA 100": {"period": "", "due": "", "status": "Completed"}, "YE Adjustment": {"period": "", "due": "", "status": "Completed"}}, "completedDate": "2026-01-01", "completedBy": "System"}, {"id": "cp025", "name": "Nutriwolds Raw Ltd", "compno": "", "yearend": "", "assigned": "James Wigby", "client": "James Wigby", "clientemail": "", "clientphone": "", "priority": "Normal", "comptype": "Ltd Company", "notes": "", "ref": "", "tasks": {"Bookkeeping": {"period": "", "due": "", "status": "Completed"}, "VAT": {"period": "", "due": "", "status": "Completed"}, "PAYE": {"period": "", "due": "", "status": "Completed"}, "Full Accounts": {"period": "", "due": "", "status": "Completed"}, "CS-01": {"period": "", "due": "", "status": "Completed"}, "SA 100": {"period": "", "due": "", "status": "Completed"}, "YE Adjustment": {"period": "", "due": "", "status": "Completed"}}, "completedDate": "2026-01-01", "completedBy": "System"}, {"id": "cp026", "name": "Caroline Laycock Ltd", "compno": "", "yearend": "2024-03-31", "assigned": "Annette Ferguson Ltd", "client": "Annette Ferguson Ltd", "clientemail": "", "clientphone": "", "priority": "Normal", "comptype": "Ltd Company", "notes": "", "ref": "", "tasks": {"Bookkeeping": {"period": "", "due": "", "status": "Completed"}, "VAT": {"period": "", "due": "", "status": "Completed"}, "PAYE": {"period": "", "due": "", "status": "Completed"}, "Full Accounts": {"period": "", "due": "", "status": "Completed"}, "CS-01": {"period": "", "due": "", "status": "Completed"}, "SA 100": {"period": "", "due": "", "status": "Completed"}, "YE Adjustment": {"period": "", "due": "", "status": "Completed"}}, "completedDate": "2026-01-01", "completedBy": "System"}, {"id": "cp027", "name": "Moor Lane Laundry Limited", "compno": "", "yearend": "2024-02-28", "assigned": "Arjun", "client": "Arjun", "clientemail": "", "clientphone": "", "priority": "Normal", "comptype": "Ltd Company", "notes": "", "ref": "", "tasks": {"Bookkeeping": {"period": "", "due": "", "status": "Completed"}, "VAT": {"period": "", "due": "", "status": "Completed"}, "PAYE": {"period": "", "due": "", "status": "Completed"}, "Full Accounts": {"period": "", "due": "", "status": "Completed"}, "CS-01": {"period": "", "due": "", "status": "Completed"}, "SA 100": {"period": "", "due": "", "status": "Completed"}, "YE Adjustment": {"period": "", "due": "", "status": "Completed"}}, "completedDate": "2026-01-01", "completedBy": "System"}, {"id": "cp028", "name": "Spitfire Inbound Ltd", "compno": "", "yearend": "", "assigned": "Ari", "client": "Ari", "clientemail": "", "clientphone": "", "priority": "Normal", "comptype": "Ltd Company", "notes": "", "ref": "", "tasks": {"Bookkeeping": {"period": "", "due": "", "status": "Completed"}, "VAT": {"period": "", "due": "", "status": "Completed"}, "PAYE": {"period": "", "due": "", "status": "Completed"}, "Full Accounts": {"period": "", "due": "", "status": "Completed"}, "CS-01": {"period": "", "due": "", "status": "Completed"}, "SA 100": {"period": "", "due": "", "status": "Completed"}, "YE Adjustment": {"period": "", "due": "", "status": "Completed"}}, "completedDate": "2026-01-01", "completedBy": "System"}, {"id": "cp029", "name": "Spitfire Inbound Ltd", "compno": "", "yearend": "", "assigned": "Ari", "client": "Ari", "clientemail": "", "clientphone": "", "priority": "Normal", "comptype": "Ltd Company", "notes": "", "ref": "", "tasks": {"Bookkeeping": {"period": "", "due": "", "status": "Completed"}, "VAT": {"period": "", "due": "", "status": "Completed"}, "PAYE": {"period": "", "due": "", "status": "Completed"}, "Full Accounts": {"period": "", "due": "", "status": "Completed"}, "CS-01": {"period": "", "due": "", "status": "Completed"}, "SA 100": {"period": "", "due": "", "status": "Completed"}, "YE Adjustment": {"period": "", "due": "", "status": "Completed"}}, "completedDate": "2026-01-01", "completedBy": "System"}, {"id": "cp030", "name": "Five In Five Limited", "compno": "", "yearend": "", "assigned": "Cross & Theocharis (Andrew Cross)", "client": "Cross & Theocharis (Andrew Cross)", "clientemail": "", "clientphone": "", "priority": "Normal", "comptype": "Ltd Company", "notes": "", "ref": "", "tasks": {"Bookkeeping": {"period": "", "due": "", "status": "Completed"}, "VAT": {"period": "", "due": "", "status": "Completed"}, "PAYE": {"period": "", "due": "", "status": "Completed"}, "Full Accounts": {"period": "", "due": "", "status": "Completed"}, "CS-01": {"period": "", "due": "", "status": "Completed"}, "SA 100": {"period": "", "due": "", "status": "Completed"}, "YE Adjustment": {"period": "", "due": "", "status": "Completed"}}, "completedDate": "2026-01-01", "completedBy": "System"}, {"id": "cp031", "name": "Five In Five Limited", "compno": "", "yearend": "", "assigned": "Cross & Theocharis (Andrew Cross)", "client": "Cross & Theocharis (Andrew Cross)", "clientemail": "", "clientphone": "", "priority": "Normal", "comptype": "Ltd Company", "notes": "", "ref": "", "tasks": {"Bookkeeping": {"period": "", "due": "", "status": "Completed"}, "VAT": {"period": "", "due": "", "status": "Completed"}, "PAYE": {"period": "", "due": "", "status": "Completed"}, "Full Accounts": {"period": "", "due": "", "status": "Completed"}, "CS-01": {"period": "", "due": "", "status": "Completed"}, "SA 100": {"period": "", "due": "", "status": "Completed"}, "YE Adjustment": {"period": "", "due": "", "status": "Completed"}}, "completedDate": "2026-01-01", "completedBy": "System"}, {"id": "cp032", "name": "Ithaca Barn Limited", "compno": "", "yearend": "", "assigned": "Cross & Theocharis (Andrew Cross)", "client": "Cross & Theocharis (Andrew Cross)", "clientemail": "", "clientphone": "", "priority": "Normal", "comptype": "Ltd Company", "notes": "", "ref": "", "tasks": {"Bookkeeping": {"period": "", "due": "", "status": "Completed"}, "VAT": {"period": "", "due": "", "status": "Completed"}, "PAYE": {"period": "", "due": "", "status": "Completed"}, "Full Accounts": {"period": "", "due": "", "status": "Completed"}, "CS-01": {"period": "", "due": "", "status": "Completed"}, "SA 100": {"period": "", "due": "", "status": "Completed"}, "YE Adjustment": {"period": "", "due": "", "status": "Completed"}}, "completedDate": "2026-01-01", "completedBy": "System"}, {"id": "cp033", "name": "Ithaca Barn Limited", "compno": "", "yearend": "", "assigned": "Cross & Theocharis (Andrew Cross)", "client": "Cross & Theocharis (Andrew Cross)", "clientemail": "", "clientphone": "", "priority": "Normal", "comptype": "Ltd Company", "notes": "", "ref": "", "tasks": {"Bookkeeping": {"period": "", "due": "", "status": "Completed"}, "VAT": {"period": "", "due": "", "status": "Completed"}, "PAYE": {"period": "", "due": "", "status": "Completed"}, "Full Accounts": {"period": "", "due": "", "status": "Completed"}, "CS-01": {"period": "", "due": "", "status": "Completed"}, "SA 100": {"period": "", "due": "", "status": "Completed"}, "YE Adjustment": {"period": "", "due": "", "status": "Completed"}}, "completedDate": "2026-01-01", "completedBy": "System"}, {"id": "cp034", "name": "Sutton Lea Manor (Sole Trader)", "compno": "", "yearend": "", "assigned": "Cross & Theocharis (Andrew Cross)", "client": "Cross & Theocharis (Andrew Cross)", "clientemail": "", "clientphone": "", "priority": "Normal", "comptype": "Ltd Company", "notes": "", "ref": "", "tasks": {"Bookkeeping": {"period": "", "due": "", "status": "Completed"}, "VAT": {"period": "", "due": "", "status": "Completed"}, "PAYE": {"period": "", "due": "", "status": "Completed"}, "Full Accounts": {"period": "", "due": "", "status": "Completed"}, "CS-01": {"period": "", "due": "", "status": "Completed"}, "SA 100": {"period": "", "due": "", "status": "Completed"}, "YE Adjustment": {"period": "", "due": "", "status": "Completed"}}, "completedDate": "2026-01-01", "completedBy": "System"}, {"id": "cp035", "name": "​East Bridge College Ltd", "compno": "", "yearend": "", "assigned": "Sanjib", "client": "Sanjib", "clientemail": "", "clientphone": "", "priority": "Normal", "comptype": "Ltd Company", "notes": "", "ref": "", "tasks": {"Bookkeeping": {"period": "", "due": "", "status": "Completed"}, "VAT": {"period": "", "due": "", "status": "Completed"}, "PAYE": {"period": "", "due": "", "status": "Completed"}, "Full Accounts": {"period": "", "due": "", "status": "Completed"}, "CS-01": {"period": "", "due": "", "status": "Completed"}, "SA 100": {"period": "", "due": "", "status": "Completed"}, "YE Adjustment": {"period": "", "due": "", "status": "Completed"}}, "completedDate": "2026-01-01", "completedBy": "System"}];
+const SEED_TEAM      = ["Athira", "Dinesh"];
+
+let _storedCo  = JSON.parse(localStorage.getItem('tft_companies') || 'null');
+let _storedCom = JSON.parse(localStorage.getItem('tft_completed') || 'null');
+let _storedTm  = JSON.parse(localStorage.getItem('tft_team') || 'null');
+let companies   = (_storedCo  && _storedCo.length  > 0) ? _storedCo  : SEED_COMPANIES;
+let completed   = (_storedCom && _storedCom.length > 0) ? _storedCom : SEED_COMPLETED;
+let mails       = JSON.parse(localStorage.getItem('tft_mails')    || '[]');
+let activityLog = JSON.parse(localStorage.getItem('tft_activity') || '[]');
+let teamMembers = (_storedTm  && _storedTm.length  > 0) ? _storedTm  : SEED_TEAM;
+
+function save(){
+  localStorage.setItem('tft_companies', JSON.stringify(companies));
+  localStorage.setItem('tft_completed',  JSON.stringify(completed));
+  localStorage.setItem('tft_mails',      JSON.stringify(mails));
+  localStorage.setItem('tft_users',      JSON.stringify(users));
+  localStorage.setItem('tft_activity',   JSON.stringify(activityLog));
+  localStorage.setItem('tft_team',       JSON.stringify(teamMembers));
+  localStorage.setItem(TASKS_KEY,        JSON.stringify(TASKS));
+}
+
+function logActivity(type, msg, color='blue'){
+  activityLog.unshift({ type, msg, color, user: currentUser?.name||'System', time: new Date().toISOString() });
+  if(activityLog.length > 200) activityLog = activityLog.slice(0,200);
+  save();
+}
+
+// ═══════════════════════════════════════════════════════════════
+// AUTH
+// ═══════════════════════════════════════════════════════════════
+function doLogin(){
+  const u = document.getElementById('li_user').value.trim();
+  const p = document.getElementById('li_pass').value;
+  const found = users.find(x=>x.username===u && x.password===p);
+  if(!found){ document.getElementById('loginErr').style.display='block'; return; }
+  currentUser = found;
+  sessionStorage.setItem('tft_session', JSON.stringify(found));
+  document.getElementById('loginErr').style.display='none';
+  startApp();
+}
+
+function doLogout(){
+  sessionStorage.removeItem('tft_session');
+  currentUser = null;
+  document.getElementById('loginScreen').style.display='flex';
+  document.getElementById('appShell').style.display='none';
+  document.getElementById('userDropdown').classList.remove('open');
+}
+
+function startApp(){
+  document.getElementById('loginScreen').style.display='none';
+  document.getElementById('appShell').style.display='grid';
+  // Always persist current data (seed or saved) on startup
+  save();
+  updateHeaderUser();
+  applyRoleUI();
+  populateAssignedDropdowns();
+  buildTaskForm();
+  renderDashboard();
+  refreshCounts();
+}
+
+function updateHeaderUser(){
+  if(!currentUser) return;
+  const initials = currentUser.name.split(' ').map(n=>n[0]).join('').slice(0,2).toUpperCase();
+  document.getElementById('hdrAvatar').textContent = initials;
+  document.getElementById('hdrAvatar').style.background = currentUser.color || '#2E75B6';
+  document.getElementById('hdrName').textContent = currentUser.name;
+  document.getElementById('hdrRole').textContent = currentUser.role==='admin' ? '👑 Admin' : '👤 User';
+  document.getElementById('hdrRole').className = 'role-badge-hdr ' + (currentUser.role==='admin' ? 'role-admin' : 'role-user');
+  document.getElementById('ddName').textContent = currentUser.name;
+  document.getElementById('ddRole').textContent = currentUser.role==='admin' ? 'Administrator' : 'Team Member';
+}
+
+function applyRoleUI(){
+  document.body.classList.toggle('role-admin', currentUser?.role==='admin');
+  document.querySelectorAll('.admin-only').forEach(el=>{ el.style.display = currentUser?.role==='admin' ? 'flex' : 'none'; });
+  // Hide "Activity Log" in dropdown for non-admins
+  document.querySelectorAll('.admin-dd').forEach(el=>{ el.style.display = currentUser?.role==='admin' ? 'flex' : 'none'; });
+}
+
+function toggleUserMenu(){
+  document.getElementById('userDropdown').classList.toggle('open');
+}
+document.addEventListener('click', e=>{
+  if(!document.getElementById('headerUserBtn')?.contains(e.target)){
+    document.getElementById('userDropdown').classList.remove('open');
+  }
+});
+
+// Close any open modal on Escape key
+document.addEventListener('keydown', e=>{
+  if(e.key==='Escape'){
+    document.querySelectorAll('.modal-overlay.open').forEach(m=>m.classList.remove('open'));
+    document.getElementById('userDropdown')?.classList.remove('open');
+  }
+});
+
+// ── Check session on load ──────────────────────────────────────
+if(currentUser){ startApp(); }
+else { document.getElementById('loginScreen').style.display='flex'; }
+
+// ═══════════════════════════════════════════════════════════════
+// UTILS
+// ═══════════════════════════════════════════════════════════════
+const today = () => new Date().toISOString().split('T')[0];
+function fmtDate(d){ if(!d) return '—'; const dt=new Date(d+'T00:00:00'); return dt.toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'}); }
+function fmtDateTime(s){ if(!s) return '—'; const d=new Date(s); return d.toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'})+' '+d.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'}); }
+function isOverdue(d){ return d && d < today(); }
+function uid(){ return 'id_'+Math.random().toString(36).slice(2,9); }
+
+function statusBadge(s){
+  if(!s||s==='—') return '<span class="badge b-gray">—</span>';
+  const cl = s==='Completed'||s==='Filed'||s==='Filed CT and CH' ? 'b-green'
+    : s==='In Process'||s==='Internal Review' ? 'b-blue'
+    : MAIL_ACTIONS.includes(s) ? 'b-amber'
+    : s==='Missing Received'||s==='Source Mail Need to Send' ? 'b-red'
+    : s==='Not Applicable' ? 'b-gray' : 'b-navy';
+  return `<span class="badge ${cl}">${s}</span>`;
+}
+
+function priorityBadge(p){
+  if(!p||p==='Normal') return '<span class="badge b-gray">Normal</span>';
+  if(p==='High') return '<span class="badge b-amber">High</span>';
+  if(p==='Urgent') return '<span class="badge b-red">🔥 Urgent</span>';
+  return '<span class="badge b-gray">Low</span>';
+}
+
+function mailStatus(s){
+  const cl = s==='Pending Reply'?'m-pending':s==='Resolved'||s==='Reply Received'?'m-resolved':s==='No Response'?'m-noresponse':s==='Chaser Sent'?'m-chaser':'m-pending';
+  return `<span class="mail-tag ${cl}">${s}</span>`;
+}
+
+function progressOf(c){
+  let done=0, total=0;
+  TASKS.forEach(t=>{ const s=c.tasks[t]?.status; if(s&&s!=='Not Applicable'&&s!=='N/A'&&s!=='') { total++; if(s==='Completed'||s==='Filed'||s==='Filed CT and CH') done++; } });
+  return total?Math.round(done/total*100):0;
+}
+
+function hasMailAction(c){ return TASKS.some(t=>MAIL_ACTIONS.includes(c.tasks[t]?.status)); }
+
+function overdueCount(){
+  let n=0;
+  companies.forEach(c=>{ TASKS.forEach(t=>{ const s=c.tasks[t]; if(s&&isOverdue(s.due)&&s.status!=='Completed'&&s.status!=='Filed'&&s.status!=='Not Applicable') n++; }); });
+  return n;
+}
+
+function populateAssignedDropdowns(){
+  const opts = teamMembers.map(m=>`<option value="${m}">${m}</option>`).join('');
+  const el = document.getElementById('f_assigned');
+  if(el) el.innerHTML = '<option value="">— Select team member —</option>' + opts;
+  const fl = document.getElementById('filterAssigned');
+  if(fl){ fl.innerHTML = '<option value="">All assignees</option>' + opts; }
+  // Populate task filter dynamically
+  const ftEl = document.getElementById('filterTask');
+  if(ftEl){ ftEl.innerHTML = '<option value="">All tasks</option>' + TASKS.map(t=>`<option>${t}</option>`).join(''); }
+  const mc = document.getElementById('m_company');
+  if(mc) mc.innerHTML = '<option value="">Select…</option>'+companies.map(c=>`<option>${c.name}</option>`).join('');
+  const mt = document.getElementById('m_task');
+  if(mt) mt.innerHTML = '<option value="">All tasks</option>'+TASKS.map(t=>`<option>${t}</option>`).join('');
+}
+
+// ═══════════════════════════════════════════════════════════════
+// NAV
+// ═══════════════════════════════════════════════════════════════
+let activeSortField = '', activeSortDir = 1;
+let activeCurrentPage = 1;
+const PAGE_SIZE = 20;
+
+function showPage(id, btn){
+  // Access check
+  if((id==='users'||id==='settings'||id==='activity')&&currentUser?.role!=='admin'){
+    id = 'dashboard'; btn = document.querySelector('nav button');
+  }
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('nav button').forEach(b=>b.classList.remove('active'));
+  document.getElementById('page-'+id).classList.add('active');
+  if(btn) btn.classList.add('active');
+  renderPage(id);
+  document.getElementById('userDropdown').classList.remove('open');
+}
+
+function renderPage(id){
+  if(id==='dashboard') renderDashboard();
+  else if(id==='overdue') renderOverdue();
+  else if(id==='active'){ populateAssignedDropdowns(); renderActive(); }
+  else if(id==='completed') renderCompleted();
+  else if(id==='mail'){ populateAssignedDropdowns(); renderMail(); }
+  else if(id==='add'){
+    const isAdmin = currentUser?.role==='admin';
+    document.getElementById('addAccessDenied').style.display = isAdmin ? 'none' : 'block';
+    document.getElementById('addFormWrap').style.display = isAdmin ? 'block' : 'none';
+    if(isAdmin){ populateAssignedDropdowns(); buildTaskForm(); }
+  }
+  else if(id==='users') renderUsers();
+  else if(id==='activity') renderActivity();
+  else if(id==='settings') renderSettings();
+  else if(id==='profile') renderProfile();
+}
+
+function switchTab(tabId, btn){
+  document.querySelectorAll('.tab-pane').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+  document.getElementById(tabId).classList.add('active');
+  btn.classList.add('active');
+}
+
+// ═══════════════════════════════════════════════════════════════
+// DASHBOARD
+// ═══════════════════════════════════════════════════════════════
+function renderDashboard(){
+  const oc = overdueCount();
+  const mc = mails.filter(m=>m.status==='Pending Reply'||m.status==='No Response').length;
+  const mailActions = companies.filter(c=>hasMailAction(c)).length;
+
+  document.getElementById('kpiGrid').innerHTML = [
+    {label:'Active Files', val: companies.length, accent:'#2E75B6', sub:'companies tracked'},
+    {label:'Completed Files', val: completed.length, accent:'#217645', sub:'moved to completed'},
+    {label:'Overdue Tasks', val: oc, accent:'#C00000', sub:'past due date'},
+    {label:'Mail Actions', val: mailActions, accent:'#9C5700', sub:'awaiting response'},
+    {label:'Mail Threads', val: mails.length, accent:'#6E2F8A', sub:`${mc} pending reply`},
+    {label:'Team Members', val: teamMembers.length, accent:'#1F3864', sub:'active staff'},
+  ].map(k=>`<div class="kpi" style="--accent:${k.accent}"><div class="kpi-label">${k.label}</div><div class="kpi-value">${k.val}</div><div class="kpi-sub">${k.sub}</div></div>`).join('');
+
+  // Status chart
+  const counts = {};
+  companies.forEach(c=>{ TASKS.forEach(t=>{ const s=c.tasks[t]?.status; if(s&&s!=='Not Applicable'&&s!=='N/A'&&s!=='') counts[s]=(counts[s]||0)+1; }); });
+  const sorted = Object.entries(counts).filter(([,v])=>v>0).sort((a,b)=>b[1]-a[1]).slice(0,8);
+  const maxVal = Math.max(...sorted.map(([,v])=>v),1);
+  document.getElementById('statusChart').innerHTML = sorted.map(([label,val])=>{
+    const pct=Math.round(val/maxVal*100);
+    const cl=label==='Completed'||label==='Filed'?'#217645':label==='In Process'||label==='Internal Review'?'#2E75B6':MAIL_ACTIONS.includes(label)?'#9C5700':'#C00000';
+    return `<div class="bar-row"><div style="font-size:11px;color:var(--muted)">${label}</div><div class="bar-bg"><div class="bar-fill" style="width:${pct}%;background:${cl}">${val>2?val:''}</div></div><div style="font-size:12px;font-weight:600;color:var(--navy)">${val}</div></div>`;
+  }).join('')||'<div style="color:var(--muted);font-size:12px">No data yet</div>';
+
+  // Mail summary
+  const byStatus = {};
+  mails.forEach(m=>byStatus[m.status]=(byStatus[m.status]||0)+1);
+  document.getElementById('mailSummary').innerHTML = Object.entries(byStatus).length
+    ? Object.entries(byStatus).map(([s,n])=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border);font-size:12px">${mailStatus(s)}<strong style="color:var(--navy)">${n}</strong></div>`).join('')
+    : '<div style="color:var(--muted);font-size:12px">No mail entries yet.</div>';
+
+  // Assignment chart
+  const assignCounts = {};
+  companies.forEach(c=>{ const k=c.assigned||'Unassigned'; assignCounts[k]=(assignCounts[k]||0)+1; });
+  const aSorted = Object.entries(assignCounts).sort((a,b)=>b[1]-a[1]).slice(0,6);
+  const aMax = Math.max(...aSorted.map(([,v])=>v),1);
+  document.getElementById('assignChart').innerHTML = aSorted.map(([label,val])=>{
+    const pct=Math.round(val/aMax*100);
+    return `<div class="bar-row"><div style="font-size:11px;color:var(--muted)">${label}</div><div class="bar-bg"><div class="bar-fill" style="width:${pct}%;background:var(--blue)">${val>2?val:''}</div></div><div style="font-size:12px;font-weight:600;color:var(--navy)">${val}</div></div>`;
+  }).join('')||'<div style="color:var(--muted);font-size:12px">No data yet</div>';
+
+  // Upcoming deadlines
+  const now = new Date(); const soon = new Date(); soon.setDate(now.getDate()+14);
+  const upcoming = [];
+  companies.forEach(c=>{ TASKS.forEach(t=>{ const s=c.tasks[t]; if(s&&s.due&&!isOverdue(s.due)&&s.status!=='Completed'&&s.status!=='Filed'&&s.status!=='Not Applicable'){
+    const d=new Date(s.due+'T00:00:00');
+    if(d<=soon) upcoming.push({company:c.name,task:t,due:s.due,status:s.status,assigned:c.assigned||'—',days:Math.round((d-now)/86400000)});
+  }}); });
+  upcoming.sort((a,b)=>a.due.localeCompare(b.due));
+  const upEl = document.getElementById('upcomingDeadlines');
+  if(upEl){ upEl.innerHTML = upcoming.length
+    ? upcoming.slice(0,8).map(u=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid var(--border);font-size:12px">
+        <div><strong>${u.company}</strong> · <span style="color:var(--muted)">${u.task}</span></div>
+        <div style="text-align:right;flex-shrink:0;margin-left:8px">
+          <span class="badge ${u.days<=3?'b-red':u.days<=7?'b-amber':'b-blue'}" style="font-size:10px">${u.days===0?'Today':u.days===1?'Tomorrow':u.days+'d'}</span>
+          <div style="font-size:10px;color:var(--muted);margin-top:2px">${u.assigned}</div>
+        </div>
+      </div>`).join('')
+    : '<div style="color:var(--muted);font-size:12px;padding:8px 0">No deadlines in the next 14 days 🎉</div>';
+  }
+  const recent = activityLog.slice(0,6);
+  const dotColor = {green:'green',red:'red',amber:'amber'};
+  document.getElementById('dashActivity').innerHTML = recent.length
+    ? recent.map(a=>`<div class="activity-item"><div class="activity-dot ${dotColor[a.color]||''}"></div><div style="flex:1"><div>${a.msg}</div><div style="color:var(--muted);font-size:11px">${a.user} · ${fmtDateTime(a.time)}</div></div></div>`).join('')
+    : '<div style="color:var(--muted);font-size:12px;padding:8px 0">No activity yet</div>';
+
+  document.getElementById('dashDate').textContent = new Date().toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
+
+  // Role banner
+  const bar = document.getElementById('dashRoleBar');
+  if(bar){
+    if(currentUser?.role === 'admin'){
+      bar.innerHTML = `<div class="user-access-bar" style="background:linear-gradient(135deg,#FFFBEB,#FEFCE8);border-color:var(--amber);margin-bottom:16px">
+        👑 <strong>Admin Mode</strong> — Full access: add, edit, delete companies, manage users and view activity log.
+      </div>`;
+    } else {
+      const grantedFiles = companies.filter(c=>(c.accessGrants||[]).some(g=>g.userId===currentUser?.id));
+      bar.innerHTML = `<div class="user-access-bar" style="margin-bottom:16px">
+        👤 <strong>User Mode</strong> — You can update task statuses and notes on all files.
+        ${grantedFiles.length ? `<span style="margin-left:8px">🔑 Elevated access on <strong>${grantedFiles.length}</strong> file${grantedFiles.length>1?'s':''}.</span>` : ''}
+      </div>`;
+    }
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// OVERDUE
+// ═══════════════════════════════════════════════════════════════
+function renderOverdue(){
+  const items = [];
+  companies.forEach(c=>{ TASKS.forEach(t=>{ const s=c.tasks[t]; if(s&&isOverdue(s.due)&&s.status!=='Completed'&&s.status!=='Filed'&&s.status!=='Not Applicable'){ items.push({company:c.name,assigned:c.assigned||'—',task:t,status:s.status||'No status',due:s.due,priority:c.priority||'Normal'}); } }); });
+  items.sort((a,b)=>a.due.localeCompare(b.due));
+  const el=document.getElementById('overdueList');
+  if(!items.length){ el.innerHTML='<div class="empty"><div class="icon">✅</div><div>No overdue tasks!</div></div>'; return; }
+  el.innerHTML=`<div class="alert-bar">🚨 ${items.length} overdue task${items.length>1?'s':''} require immediate attention</div>
+    <div class="tbl-wrap"><table>
+      <thead><tr><th>Company</th><th>Priority</th><th>Assigned To</th><th>Task</th><th>Status</th><th>Due Date</th><th>Days Overdue</th></tr></thead>
+      <tbody>${items.map(i=>{ const days=Math.round((new Date()-new Date(i.due+'T00:00:00'))/86400000);
+      return `<tr><td style="font-weight:500">${i.company}</td><td>${priorityBadge(i.priority)}</td><td>${i.assigned}</td><td><span class="badge b-navy">${i.task}</span></td><td>${statusBadge(i.status)}</td><td style="color:var(--dkred);font-weight:500">${fmtDate(i.due)}</td><td><span class="badge b-red">${days}d over</span></td></tr>`;
+      }).join('')}</tbody></table></div>`;
+}
+
+// ═══════════════════════════════════════════════════════════════
+// ACTIVE FILES
+// ═══════════════════════════════════════════════════════════════
+function clearActiveFilters(){
+  ['searchInput','filterAssigned','filterTask','filterStatus','filterProgress','filterType'].forEach(id=>{ const el=document.getElementById(id); if(el) el.value=''; });
+  renderActive();
+}
+
+function sortActive(field){
+  if(activeSortField===field) activeSortDir*=-1; else { activeSortField=field; activeSortDir=1; }
+  renderActive();
+}
+
+function renderActive(){
+  // Rebuild dynamic task filter dropdown
+  const ftEl = document.getElementById('filterTask');
+  if(ftEl){
+    const curFT = ftEl.value;
+    ftEl.innerHTML = '<option value="">All tasks</option>' + TASKS.map(t=>`<option${curFT===t?' selected':''}>${t}</option>`).join('');
+  }
+
+  // Rebuild dynamic task columns header
+  const thead = document.querySelector('#activeTable thead tr');
+  if(thead){
+    // Remove old task-column ths (between Client and Progress)
+    const allThs = Array.from(thead.querySelectorAll('th'));
+    // Find Client and Progress indices
+    const clientIdx = allThs.findIndex(th=>th.textContent.trim()==='Client');
+    const progressIdx = allThs.findIndex(th=>th.textContent.includes('Progress'));
+    if(clientIdx>=0 && progressIdx>=0){
+      // Remove everything between clientIdx+1 and progressIdx-1
+      for(let i=progressIdx-1; i>clientIdx; i--){
+        allThs[i].remove();
+      }
+      // Insert dynamic task headers after Client
+      const after = allThs[clientIdx];
+      TASKS.slice().reverse().forEach(t=>{
+        const th = document.createElement('th');
+        th.textContent = t.length>8 ? t.split(' ').map(w=>w[0]).join('') : t;
+        th.title = t;
+        after.insertAdjacentElement('afterend', th);
+      });
+    }
+  }
+  const q   = (document.getElementById('searchInput')?.value||'').toLowerCase();
+  const fa  = document.getElementById('filterAssigned')?.value||'';
+  const ft  = document.getElementById('filterTask')?.value||'';
+  const fs  = document.getElementById('filterStatus')?.value||'';
+  const fp  = document.getElementById('filterProgress')?.value||'';
+  const fty = document.getElementById('filterType')?.value||'';
+
+  let data = companies.filter(c=>{
+    if(q && !c.name.toLowerCase().includes(q) && !(c.assigned||'').toLowerCase().includes(q) && !(c.client||'').toLowerCase().includes(q)) return false;
+    if(fa && c.assigned!==fa) return false;
+    if(fty && c.comptype!==fty) return false;
+    if(ft && fs && c.tasks[ft]?.status!==fs) return false;
+    if(ft && !fs && !c.tasks[ft]) return false;
+    if(!ft && fs && !TASKS.some(t=>c.tasks[t]?.status===fs)) return false;
+    if(fp){
+      const prog=progressOf(c);
+      if(fp==='0'&&prog!==0) return false;
+      if(fp==='low'&&!(prog>=1&&prog<=49)) return false;
+      if(fp==='high'&&!(prog>=50&&prog<=99)) return false;
+      if(fp==='100'&&prog!==100) return false;
+    }
+    return true;
+  });
+
+  // Sort
+  if(activeSortField){
+    data.sort((a,b)=>{
+      let av,bv;
+      if(activeSortField==='name'){ av=a.name||''; bv=b.name||''; }
+      else if(activeSortField==='yearend'){ av=a.yearend||''; bv=b.yearend||''; }
+      else if(activeSortField==='assigned'){ av=a.assigned||''; bv=b.assigned||''; }
+      else if(activeSortField==='progress'){ av=progressOf(a); bv=progressOf(b); }
+      return av<bv?-activeSortDir:av>bv?activeSortDir:0;
+    });
+    ['name','yearend','assigned','progress'].forEach(f=>{
+      const el=document.getElementById('si-'+f);
+      if(el) el.textContent=activeSortField===f?(activeSortDir===1?'↑':'↓'):'↕';
+      if(el) el.className='sort-icon'+(activeSortField===f?(activeSortDir===1?' asc':' desc'):'');
+    });
+  }
+
+  // Quick stats bar
+  const qsEl = document.getElementById('activeQuickStats');
+  if(qsEl && data.length){
+    const overdueC = data.filter(c=>TASKS.some(t=>{ const s=c.tasks[t]; return s&&isOverdue(s.due)&&s.status!=='Completed'&&s.status!=='Filed'&&s.status!=='Not Applicable'; })).length;
+    const mailC = data.filter(c=>hasMailAction(c)).length;
+    const unassigned = data.filter(c=>!c.assigned).length;
+    qsEl.innerHTML = [
+      overdueC ? `<span class="badge b-red">⚠ ${overdueC} overdue</span>` : '',
+      mailC ? `<span class="badge b-amber">📧 ${mailC} mail actions</span>` : '',
+      unassigned ? `<span class="badge b-gray">👤 ${unassigned} unassigned</span>` : '',
+      `<span class="badge b-blue">📂 ${data.length} total</span>`,
+    ].filter(Boolean).join('');
+  } else if(qsEl) qsEl.innerHTML='';
+
+  // Summary bar
+  const sbar = document.getElementById('activeSummaryBar');
+  if(sbar) sbar.innerHTML = data.length!==companies.length
+    ? `<div class="info-bar">🔍 Showing ${data.length} of ${companies.length} companies</div>` : '';
+
+  // Pagination
+  const total = data.length;
+  const totalPages = Math.max(1, Math.ceil(total/PAGE_SIZE));
+  if(activeCurrentPage > totalPages) activeCurrentPage=1;
+  const pageData = data.slice((activeCurrentPage-1)*PAGE_SIZE, activeCurrentPage*PAGE_SIZE);
+
+  const tbody = document.getElementById('activeTbody');
+  if(!pageData.length){ tbody.innerHTML=`<tr><td colspan="16"><div class="empty"><div class="icon">📂</div><div>No companies match your filters. <a href="#" onclick="clearActiveFilters()" style="color:var(--blue)">Clear filters</a></div></div></td></tr>`; }
+  else {
+    tbody.innerHTML = pageData.map((c)=>{
+      const prog=progressOf(c); const mail=hasMailAction(c); const idx=companies.indexOf(c);
+      const overdueTasks = TASKS.filter(t=>{ const s=c.tasks[t]; return s&&isOverdue(s.due)&&s.status!=='Completed'&&s.status!=='Filed'&&s.status!=='Not Applicable'; }).length;
+      return `<tr${overdueTasks?' style="background:#FFF8F0"':''}>
+        <td style="color:var(--muted);font-size:11px">${companies.indexOf(c)+1}</td>
+        <td style="font-weight:500;min-width:130px">
+          <span title="${c.compno?'Co# '+c.compno+'\n':''}">${c.name}</span>
+          ${c.compno?`<span style="font-size:9px;color:var(--muted);display:block;font-family:var(--mono)">#${c.compno}</span>`:''}
+          ${overdueTasks?`<span class="badge b-red" style="margin-left:4px;font-size:9px">⚠${overdueTasks}</span>`:''}
+          ${c.notes?`<span class="badge b-navy" style="font-size:9px;cursor:help;margin-left:2px" title="${c.notes.replace(/"/g,'&quot;')}">📝</span>`:''}
+        </td>
+        <td style="font-size:11px;color:var(--muted);white-space:nowrap">${fmtDate(c.yearend)}</td>
+        <td style="font-size:11px">${c.assigned||'<span style="color:var(--dkred)">—unassigned—</span>'}</td>
+        <td style="font-size:11px;color:var(--muted)">${c.client||'—'}</td>
+        ${TASKS.map(t=>`<td>${statusBadge(c.tasks[t]?.status||'—')}</td>`).join('')}
+        <td style="white-space:nowrap">
+          <span class="prog-wrap"><span class="prog-fill" style="width:${prog}%"></span></span>
+          <span style="font-size:11px;color:var(--muted)">${prog}%</span>
+        </td>
+        <td>${mail?'<span class="badge b-red">⚠ Action</span>':'<span class="badge b-green">OK</span>'}</td>
+        <td style="white-space:nowrap">
+          <button class="btn-icon" onclick="viewCompany(${idx})" title="View Details">👁</button>
+          <button class="btn-icon user-only-btn" style="color:var(--blue)" onclick="openUserEdit(${idx})" title="Update Status &amp; Notes">✏️</button>
+          <button class="btn-icon admin-only-btn" style="color:var(--blue)" onclick="editCompany(${idx})" title="Edit (Admin)">✏️</button>
+          <button class="btn-icon admin-only-btn" style="color:var(--amber)" onclick="duplicateCompany(${idx})" title="Duplicate">⧉</button>
+          <button class="btn-icon admin-only-btn" style="color:var(--green)" onclick="moveToCompleted(${idx})" title="Mark Complete">✅</button>
+          <button class="btn-icon admin-only-btn" style="color:var(--dkred)" onclick="deleteCompany(${idx})" title="Delete">🗑</button>
+          <button class="btn-icon admin-only-btn" style="color:var(--purple)" onclick="openGrantAccess(${idx})" title="Grant Access">🔑</button>
+        </td>
+      </tr>`;
+    }).join('');
+  }
+
+  // Render pagination
+  const pag = document.getElementById('activePagination');
+  if(pag && totalPages>1){
+    let html=`<span class="page-info">${total} companies</span>`;
+    html+=`<button class="page-btn" onclick="goPage(${activeCurrentPage-1})" ${activeCurrentPage===1?'disabled':''}>‹</button>`;
+    for(let i=1;i<=totalPages;i++){ if(i===1||i===totalPages||Math.abs(i-activeCurrentPage)<=1) html+=`<button class="page-btn${i===activeCurrentPage?' active':''}" onclick="goPage(${i})">${i}</button>`; else if(Math.abs(i-activeCurrentPage)===2) html+='<span style="color:var(--muted)">…</span>'; }
+    html+=`<button class="page-btn" onclick="goPage(${activeCurrentPage+1})" ${activeCurrentPage===totalPages?'disabled':''}>›</button>`;
+    pag.innerHTML=html;
+  } else if(pag) pag.innerHTML=total?`<span class="page-info">${total} companies</span>`:'';
+}
+
+function goPage(n){ activeCurrentPage=n; renderActive(); }
+
+// ═══════════════════════════════════════════════════════════════
+// ADD / EDIT COMPANY
+// ═══════════════════════════════════════════════════════════════
+function buildTaskForm(data){
+  const grid=document.getElementById('taskFormGrid');
+  if(!grid) return;
+  grid.innerHTML=TASKS.map(t=>{
+    const k=t.replace(/\s/g,'_');
+    const saved=data?.tasks[t]||{};
+    const status=saved.status||'Not Yet Started';
+    const isEnabled=saved.enabled!==false&&status!=='Not Applicable'&&status!=='N/A';
+    const period=saved.period||''; const due=saved.due||'';
+    return `<div class="task-card" id="tc_${k}" style="${isEnabled?'':'opacity:0.42'}">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;border-bottom:2px solid var(--ltblue);padding-bottom:7px">
+        <span style="font-size:12px;font-weight:600;color:var(--navy)">${t}</span>
+        <label style="display:flex;align-items:center;gap:5px;cursor:pointer;font-size:11px;color:var(--muted);user-select:none">
+          <input type="checkbox" id="te_${k}" ${isEnabled?'checked':''} onchange="toggleTask('${k}')">Enable
+        </label>
+      </div>
+      <div id="tf_body_${k}" style="${isEnabled?'':'pointer-events:none;opacity:0.5'}">
+        <div class="task-row">
+          <div class="form-group"><label>Period/Info</label><input type="text" id="tf_period_${k}" placeholder="e.g. Apr'26" value="${period}"></div>
+          <div class="form-group"><label>Due Date</label><input type="date" id="tf_due_${k}" value="${due}"></div>
+        </div>
+        <div class="form-group"><label>Status</label>
+          <select id="tf_status_${k}">
+            ${(STATUS_OPTS[t]||['Not Yet Started','In Process','Internal Review','Completed','Not Applicable']).map(s=>`<option${status===s?' selected':''}>${s}</option>`).join('')}
+          </select>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function toggleTask(k){
+  const chk=document.getElementById('te_'+k);
+  const card=document.getElementById('tc_'+k);
+  const body=document.getElementById('tf_body_'+k);
+  const on=chk?.checked;
+  if(card) card.style.opacity=on?'1':'0.42';
+  if(body){body.style.pointerEvents=on?'auto':'none';body.style.opacity=on?'1':'0.5';}
+  if(!on){
+    const s=body?.querySelector('select'); if(s) s.value='Not Applicable';
+    const p=body?.querySelector('input[type=text]'); if(p) p.value='';
+    const d=body?.querySelector('input[type=date]'); if(d) d.value='';
+  }
+}
+function enableAllTasks(){TASKS.forEach(t=>{const k=t.replace(/\s/g,'_'),c=document.getElementById('te_'+k);if(c&&!c.checked){c.checked=true;toggleTask(k);}});}
+function disableAllTasks(){TASKS.forEach(t=>{const k=t.replace(/\s/g,'_'),c=document.getElementById('te_'+k);if(c&&c.checked){c.checked=false;toggleTask(k);}});}
+
+
+let editingIdx = null;
+
+function addCompany(){
+  const name=document.getElementById('f_company').value.trim();
+  if(!name){ alert('Company name is required'); return; }
+  const entry={
+    id: editingIdx!==null ? companies[editingIdx].id : uid(),
+    name, compno:document.getElementById('f_compno').value,
+    yearend:document.getElementById('f_yearend').value,
+    assigned:document.getElementById('f_assigned').value,
+    client:document.getElementById('f_client').value,
+    clientemail:document.getElementById('f_clientemail').value,
+    clientphone:document.getElementById('f_clientphone').value,
+    priority:document.getElementById('f_priority').value,
+    comptype:document.getElementById('f_comptype').value,
+    notes:document.getElementById('f_notes').value,
+    ref:document.getElementById('f_ref').value,
+    createdBy: editingIdx!==null ? companies[editingIdx].createdBy : currentUser?.name,
+    createdAt: editingIdx!==null ? companies[editingIdx].createdAt : new Date().toISOString(),
+    updatedBy: currentUser?.name,
+    updatedAt: new Date().toISOString(),
+    tasks:{}
+  };
+  TASKS.forEach(t=>{
+    const k=t.replace(/\s/g,'_');
+    const on=document.getElementById('te_'+k)?.checked!==false;
+    entry.tasks[t]={
+      enabled:on,
+      period:on?(document.getElementById('tf_period_'+k)?.value.trim()||''):'',
+      due:on?(document.getElementById('tf_due_'+k)?.value||''):'',
+      status:on?(document.getElementById('tf_status_'+k)?.value||'Not Yet Started'):'Not Applicable',
+    };
+  });
+
+  if(editingIdx!==null){
+    companies[editingIdx]=entry;
+    logActivity('Company Edited', `Edited company: ${name}`, 'amber');
+    editingIdx=null;
+  } else {
+    companies.push(entry);
+    logActivity('Company Added', `Added company: ${name}`, 'green');
+  }
+  save(); clearForm();
+  showPage('active', document.querySelector('nav button[onclick*="active"]'));
+  refreshCounts();
+}
+
+function clearForm(){
+  ['f_company','f_compno','f_assigned','f_client','f_clientemail','f_clientphone','f_notes','f_ref'].forEach(id=>{ const el=document.getElementById(id); if(el) el.value=''; });
+  document.getElementById('f_yearend').value='';
+  document.getElementById('f_priority').value='Normal';
+  document.getElementById('f_comptype').value='Ltd Company';
+  buildTaskForm(); editingIdx=null;
+  document.getElementById('addPageTitle').textContent='Add New Company';
+  document.getElementById('saveCompanyBtn').textContent='➕ Add Company';
+  document.getElementById('cancelEditBtn').style.display='none';
+  const _c1=document.getElementById('saveCompanyBtn2');if(_c1)_c1.textContent='➕ Add Company';
+  const _c2=document.getElementById('cancelEditBtn2');if(_c2)_c2.style.display='none';
+}
+
+function cancelEdit(){ clearForm(); showPage('active', document.querySelector('nav button[onclick*="active"]')); }
+
+function editCompany(idx){
+  const c=companies[idx]; editingIdx=idx;
+  document.getElementById('f_company').value=c.name;
+  document.getElementById('f_compno').value=c.compno||'';
+  document.getElementById('f_yearend').value=c.yearend||'';
+  document.getElementById('f_assigned').value=c.assigned||'';
+  document.getElementById('f_client').value=c.client||'';
+  document.getElementById('f_clientemail').value=c.clientemail||'';
+  document.getElementById('f_clientphone').value=c.clientphone||'';
+  document.getElementById('f_priority').value=c.priority||'Normal';
+  document.getElementById('f_comptype').value=c.comptype||'Ltd Company';
+  document.getElementById('f_notes').value=c.notes||'';
+  document.getElementById('f_ref').value=c.ref||'';
+  buildTaskForm(c);
+  document.getElementById('addPageTitle').textContent='Edit Company: '+c.name;
+  document.getElementById('saveCompanyBtn').textContent='💾 Save Changes';
+  document.getElementById('cancelEditBtn').style.display='inline-flex';
+  const _e1=document.getElementById('saveCompanyBtn2');if(_e1)_e1.textContent='💾 Save Changes';
+  const _e2=document.getElementById('cancelEditBtn2');if(_e2)_e2.style.display='inline-flex';
+  showPage('add', document.querySelector('nav button[onclick*="add"]'));
+}
+
+// ═══════════════════════════════════════════════════════════════
+// VIEW COMPANY
+// ═══════════════════════════════════════════════════════════════
+function viewCompany(idx){
+  const c=companies[idx];
+  document.getElementById('viewModalTitle').textContent=c.name;
+  document.getElementById('viewModalBody').innerHTML=`
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:20px;font-size:13px">
+      <div><strong style="color:var(--muted);font-size:11px">COMPANY NO</strong><div style="font-family:var(--mono)">${c.compno||'—'}</div></div>
+      <div><strong style="color:var(--muted);font-size:11px">TYPE</strong><div>${c.comptype||'—'}</div></div>
+      <div><strong style="color:var(--muted);font-size:11px">YEAR END</strong><div>${fmtDate(c.yearend)}</div></div>
+      <div><strong style="color:var(--muted);font-size:11px">PRIORITY</strong><div>${priorityBadge(c.priority||'Normal')}</div></div>
+      <div><strong style="color:var(--muted);font-size:11px">ASSIGNED TO</strong><div>${c.assigned||'—'}</div></div>
+      <div><strong style="color:var(--muted);font-size:11px">PROGRESS</strong><div><span class="prog-wrap"><span class="prog-fill" style="width:${progressOf(c)}%"></span></span> ${progressOf(c)}%</div></div>
+      <div><strong style="color:var(--muted);font-size:11px">CLIENT</strong><div>${c.client||'—'}</div></div>
+      <div><strong style="color:var(--muted);font-size:11px">CLIENT EMAIL</strong><div>${c.clientemail?`<a href="mailto:${c.clientemail}" style="color:var(--blue)">${c.clientemail}</a>`:'—'}</div></div>
+      <div><strong style="color:var(--muted);font-size:11px">CLIENT PHONE</strong><div>${c.clientphone?`<a href="tel:${c.clientphone}" style="color:var(--blue)">${c.clientphone}</a>`:'—'}</div></div>
+      <div><strong style="color:var(--muted);font-size:11px">REF</strong><div>${c.ref||'—'}</div></div>
+      <div><strong style="color:var(--muted);font-size:11px">CREATED BY</strong><div>${c.createdBy||'—'} on ${fmtDate(c.createdAt)}</div></div>
+      <div><strong style="color:var(--muted);font-size:11px">LAST UPDATED</strong><div>${c.updatedBy?c.updatedBy+' on '+fmtDate(c.updatedAt):'—'}</div></div>
+    </div>
+    <div style="font-size:12px;font-weight:600;color:var(--navy);margin-bottom:10px">Task Statuses</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:12px">
+      ${TASKS.map(t=>{
+        const ts=c.tasks[t];
+        return `<div style="padding:8px 10px;background:var(--ltgry);border-radius:6px">
+          <div style="display:flex;justify-content:space-between;align-items:center">
+            <span style="color:var(--muted)">${t}</span>${statusBadge(ts?.status||'—')}
+          </div>
+          ${ts?.period?`<div style="font-size:10px;color:var(--muted);margin-top:3px">📌 ${ts.period}</div>`:''}
+          ${ts?.due?`<div style="font-size:10px;color:${isOverdue(ts.due)?'var(--dkred)':'var(--muted)'};margin-top:1px">📅 ${fmtDate(ts.due)}${isOverdue(ts.due)?'  ⚠ Overdue':''}</div>`:''}
+        </div>`;
+      }).join('')}
+    </div>
+    ${c.notes?`<div style="margin-top:16px;font-size:12px;font-weight:600;color:var(--navy)">Notes</div><div style="margin-top:6px;font-size:13px;color:var(--text);background:var(--ltgry);padding:10px 14px;border-radius:8px">${c.notes}</div>`:''}
+    <div style="margin-top:16px;display:flex;gap:10px;flex-wrap:wrap">
+      <button class="btn-outline btn-sm" onclick="closeViewModal();openMailForm()">📧 Log Mail</button>
+      ${currentUser?.role==='admin'?`<button class="btn-outline btn-sm" onclick="closeViewModal();editCompany(${idx})">✏️ Edit Company</button>`:`<button class="btn-outline btn-sm" onclick="closeViewModal();openUserEdit(${idx})">✏️ Update Status</button>`}
+    </div>
+  `;
+  document.getElementById('viewModal').classList.add('open');
+}
+function closeViewModal(){ document.getElementById('viewModal').classList.remove('open'); }
+
+// ═══════════════════════════════════════════════════════════════
+// DELETE
+// ═══════════════════════════════════════════════════════════════
+let deleteCallback = null;
+function openDeleteModal(msg, cb){
+  document.getElementById('deleteModalMsg').textContent=msg;
+  deleteCallback=cb;
+  // Reset button to default danger style each time
+  const btn = document.getElementById('confirmDeleteBtn');
+  btn.textContent='Delete';
+  btn.style.background='var(--red)';
+  document.getElementById('deleteModal').classList.add('open');
+}
+function closeDeleteModal(){ document.getElementById('deleteModal').classList.remove('open'); deleteCallback=null; }
+function confirmDelete(){ if(deleteCallback) deleteCallback(); closeDeleteModal(); }
+
+function deleteCompany(idx){
+  const c=companies[idx];
+  openDeleteModal(`Delete "${c.name}"? This cannot be undone.`, ()=>{
+    companies.splice(idx,1);
+    logActivity('Company Deleted', `Deleted company: ${c.name}`, 'red');
+    save(); renderActive(); refreshCounts();
+  });
+}
+
+function duplicateCompany(idx){
+  const c = companies[idx];
+  const copy = JSON.parse(JSON.stringify(c));
+  copy.id = uid();
+  copy.name = c.name + ' (Copy)';
+  copy.createdBy = currentUser?.name;
+  copy.createdAt = new Date().toISOString();
+  copy.updatedBy = '';
+  copy.updatedAt = '';
+  copy.accessGrants = [];
+  companies.push(copy);
+  logActivity('Company Duplicated', `Duplicated company: ${c.name}`, 'blue');
+  save(); renderActive(); refreshCounts();
+  // Brief flash to show new row
+  setTimeout(()=>{
+    const rows = document.querySelectorAll('#activeTbody tr');
+    if(rows.length) rows[rows.length-1].style.background='#C6EFCE';
+    setTimeout(()=>{ if(rows.length) rows[rows.length-1].style.background=''; }, 1200);
+  }, 50);
+}
+
+function deleteMailEntry(idx){
+  openDeleteModal('Delete this mail entry?', ()=>{
+    mails.splice(idx,1);
+    logActivity('Mail Deleted', `Mail entry deleted`, 'red');
+    save(); renderMail(); refreshCounts();
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════
+// COMPLETED
+// ═══════════════════════════════════════════════════════════════
+function moveToCompleted(idx){
+  const c=companies[idx];
+  openDeleteModal(`Mark "${c.name}" as completed and move it?`, ()=>{
+    const entry=companies.splice(idx,1)[0];
+    completed.push({...entry, completedDate:today(), completedBy:currentUser?.name});
+    logActivity('Completed', `Completed: ${entry.name}`, 'green');
+    save(); renderActive(); renderCompleted(); refreshCounts();
+  });
+  document.getElementById('confirmDeleteBtn').textContent='✅ Move to Completed';
+  document.getElementById('confirmDeleteBtn').style.background='var(--green)';
+}
+
+function renderCompleted(){
+  const q=(document.getElementById('searchCompleted')?.value||'').toLowerCase();
+  let data=completed.filter(c=>!q||c.name.toLowerCase().includes(q));
+  const tbody=document.getElementById('completedTbody');
+  if(!data.length){ tbody.innerHTML='<tr><td colspan="10"><div class="empty"><div class="icon">✅</div>No completed files yet</div></td></tr>'; return; }
+  tbody.innerHTML=data.map((c,i)=>{
+    const realIdx = completed.indexOf(c);
+    return `<tr>
+    <td style="color:var(--muted)">${i+1}</td>
+    <td style="font-weight:500">${c.name}</td>
+    <td style="font-size:11px">${c.comptype||'—'}</td>
+    <td>${priorityBadge(c.priority||'Normal')}</td>
+    <td>${fmtDate(c.yearend)}</td>
+    <td>${c.assigned||'—'}</td>
+    <td>${c.client||'—'}</td>
+    <td style="color:var(--dkgrn);font-weight:500">${fmtDate(c.completedDate)}</td>
+    <td style="font-size:11px;color:var(--muted);max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${c.notes||''}">${c.notes||'—'}</td>
+    <td style="white-space:nowrap">
+      <button class="btn-icon" onclick="restoreCompleted(${realIdx})" title="Restore to Active">↩️</button>
+      <button class="btn-icon" style="color:var(--dkred)" onclick="permanentDelete(${realIdx})" title="Permanently Delete">🗑</button>
+    </td>
+  </tr>`;
+  }).join('');
+}
+
+function restoreCompleted(idx){
+  const c=completed.splice(idx,1)[0];
+  delete c.completedDate; delete c.completedBy;
+  companies.push(c);
+  logActivity('Restored', `Restored company: ${c.name}`, 'amber');
+  save(); renderCompleted(); refreshCounts();
+}
+
+function permanentDelete(idx){
+  const c=completed[idx];
+  openDeleteModal(`Permanently delete "${c.name}"? This CANNOT be undone.`, ()=>{
+    completed.splice(idx,1);
+    logActivity('Permanently Deleted', `Permanently deleted: ${c.name}`, 'red');
+    save(); renderCompleted(); refreshCounts();
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════
+// MAIL TRACKER
+// ═══════════════════════════════════════════════════════════════
+let editingMailIdx = null;
+
+function openMailForm(idx=null){
+  editingMailIdx=idx;
+  const mc=document.getElementById('m_company');
+  mc.innerHTML='<option value="">Select…</option>'+companies.map(c=>`<option>${c.name}</option>`).join('');
+  if(idx!==null){
+    const m=mails[idx];
+    mc.value=m.company;
+    document.getElementById('m_task').value=m.task||'';
+    document.getElementById('m_type').value=m.type;
+    document.getElementById('m_status').value=m.status;
+    document.getElementById('m_date').value=m.date;
+    document.getElementById('m_followup').value=m.followup||'';
+    document.getElementById('m_details').value=m.details||'';
+    document.getElementById('mailModalTitle').textContent='Edit Mail Entry';
+  } else {
+    ['m_company','m_details'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+    document.getElementById('m_date').value=today();
+    document.getElementById('m_followup').value='';
+    document.getElementById('mailModalTitle').textContent='Log Mail Entry';
+  }
+  document.getElementById('mailModal').classList.add('open');
+}
+function closeMail(){ document.getElementById('mailModal').classList.remove('open'); editingMailIdx=null; }
+
+function saveMailEntry(){
+  const entry={
+    company:document.getElementById('m_company').value,
+    task:document.getElementById('m_task').value,
+    type:document.getElementById('m_type').value,
+    details:document.getElementById('m_details').value,
+    date:document.getElementById('m_date').value,
+    followup:document.getElementById('m_followup').value,
+    status:document.getElementById('m_status').value,
+    loggedBy:currentUser?.name||'—',
+    loggedAt:new Date().toISOString(),
+  };
+  if(!entry.company){ alert('Select a company'); return; }
+  if(editingMailIdx!==null){ mails[editingMailIdx]=entry; logActivity('Mail Edited','Mail entry edited','amber'); }
+  else { mails.push(entry); logActivity('Mail Logged',`Mail logged for ${entry.company}`,'blue'); }
+  save(); closeMail(); renderMail(); refreshCounts();
+}
+
+function renderMail(){
+  const q=(document.getElementById('mailSearch')?.value||'').toLowerCase();
+  const fs=document.getElementById('mailFilterStatus')?.value||'';
+  let data=[...mails].reverse().map((m,ri)=>({...m,origIdx:mails.length-1-ri}));
+  if(q) data=data.filter(m=>m.company.toLowerCase().includes(q)||(m.details||'').toLowerCase().includes(q));
+  if(fs) data=data.filter(m=>m.status===fs);
+
+  const tbody=document.getElementById('mailTbody');
+  if(!data.length){ tbody.innerHTML='<tr><td colspan="10"><div class="empty"><div class="icon">📧</div>No mail entries yet. Click "+ Log Mail" to start tracking.</div></td></tr>'; return; }
+  tbody.innerHTML=data.map((m,ri)=>{
+    const over=isOverdue(m.followup)&&m.status!=='Resolved'&&m.status!=='Reply Received';
+    return `<tr${over?' style="background:#FFF0F0"':''}>
+      <td style="color:var(--muted)">${data.length-ri}</td>
+      <td style="font-weight:500">${m.company}</td>
+      <td><span class="badge b-navy">${m.task||'—'}</span></td>
+      <td style="font-size:11px">${m.type}</td>
+      <td style="font-size:11px;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${m.details||''}">${m.details||'—'}</td>
+      <td style="font-size:11px">${fmtDate(m.date)}</td>
+      <td style="font-size:11px${over?';color:var(--dkred);font-weight:500':''}">${fmtDate(m.followup)}${over?' ⚠':''}</td>
+      <td>${mailStatus(m.status)}</td>
+      <td style="font-size:11px;color:var(--muted)">${m.loggedBy||'—'}</td>
+      <td style="white-space:nowrap">
+        <select style="font-size:11px;padding:3px 6px;border-radius:6px;border:1px solid var(--border)" onchange="updateMailStatus(${m.origIdx},this.value)">
+          ${['Pending Reply','Reply Received','Chaser Sent','Resolved','No Response'].map(s=>`<option${m.status===s?' selected':''}>${s}</option>`).join('')}
+        </select>
+        <button class="btn-icon" style="margin-left:4px" onclick="openMailForm(${m.origIdx})" title="Edit">✏️</button>
+        <button class="btn-icon" style="color:var(--dkred)" onclick="deleteMailEntry(${m.origIdx})" title="Delete">🗑</button>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+function updateMailStatus(idx,val){ mails[idx].status=val; save(); renderMail(); refreshCounts(); }
+
+// ═══════════════════════════════════════════════════════════════
+// USER MANAGEMENT
+// ═══════════════════════════════════════════════════════════════
+function renderUsers(){
+  if(currentUser?.role!=='admin'){ document.getElementById('usersContent').innerHTML='<div class="access-denied"><div class="icon">🔒</div><h3>Access Denied</h3><p>Admin access required.</p></div>'; return; }
+  const el=document.getElementById('usersContent');
+  el.innerHTML=`<div class="user-card-grid">${users.map((u,i)=>{
+    const initials=u.name.split(' ').map(n=>n[0]).join('').slice(0,2).toUpperCase();
+    const isCurrent=u.id===currentUser?.id;
+    return `<div class="user-card">
+      <div class="user-card-avatar" style="background:${u.color||'#2E75B6'}">${initials}</div>
+      <div class="user-card-info">
+        <div class="user-card-name">${u.name} ${isCurrent?'<span class="current-tag">You</span>':''}</div>
+        <div class="user-card-email">${u.email||'No email'}</div>
+        <div class="user-card-meta">
+          <span class="badge ${u.role==='admin'?'b-amber':'b-green'}">${u.role==='admin'?'👑 Admin':'👤 User'}</span>
+          <span class="badge b-gray">@${u.username}</span>
+        </div>
+        <div class="user-card-actions">
+          <button class="btn-icon" onclick="editUser(${i})" title="Edit">✏️</button>
+          ${!isCurrent?`<button class="btn-icon" style="color:var(--dkred)" onclick="deleteUser(${i})" title="Delete">🗑</button>`:''}
+        </div>
+      </div>
+    </div>`;
+  }).join('')}</div>`;
+}
+
+let editingUserIdx=null;
+function openAddUserModal(){
+  editingUserIdx=null;
+  ['u_name','u_username','u_email','u_phone','u_pass'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+  document.getElementById('u_role').value='user';
+  document.getElementById('userModalTitle').textContent='Add New User';
+  document.getElementById('saveUserBtn').textContent='Add User';
+  document.getElementById('userModalErr').style.display='none';
+  document.getElementById('addUserModal').classList.add('open');
+}
+
+function editUser(idx){
+  const u=users[idx]; editingUserIdx=idx;
+  document.getElementById('u_name').value=u.name;
+  document.getElementById('u_username').value=u.username;
+  document.getElementById('u_email').value=u.email||'';
+  document.getElementById('u_phone').value=u.phone||'';
+  document.getElementById('u_role').value=u.role;
+  document.getElementById('u_pass').value='';
+  document.getElementById('userModalTitle').textContent='Edit User: '+u.name;
+  document.getElementById('saveUserBtn').textContent='Save Changes';
+  document.getElementById('userModalErr').style.display='none';
+  document.getElementById('addUserModal').classList.add('open');
+}
+
+function closeUserModal(){ document.getElementById('addUserModal').classList.remove('open'); editingUserIdx=null; }
+
+function saveUser(){
+  const name=document.getElementById('u_name').value.trim();
+  const username=document.getElementById('u_username').value.trim().toLowerCase();
+  const pass=document.getElementById('u_pass').value;
+  const errEl=document.getElementById('userModalErr');
+  if(!name||!username){ errEl.style.display='block'; errEl.textContent='Name and username are required.'; return; }
+  if(editingUserIdx===null&&!pass){ errEl.style.display='block'; errEl.textContent='Password is required for new users.'; return; }
+  if(pass&&pass.length<4){ errEl.style.display='block'; errEl.textContent='Password must be at least 4 characters.'; return; }
+  const dup=users.find((u,i)=>u.username===username&&i!==editingUserIdx);
+  if(dup){ errEl.style.display='block'; errEl.textContent='Username already taken.'; return; }
+
+  const COLORS=['#2E75B6','#217645','#C00000','#9C5700','#6E2F8A','#1F3864','#C65C12','#167085'];
+  if(editingUserIdx!==null){
+    const u=users[editingUserIdx];
+    u.name=name; u.username=username; u.email=document.getElementById('u_email').value; u.phone=document.getElementById('u_phone').value; u.role=document.getElementById('u_role').value;
+    if(pass) u.password=pass;
+    logActivity('User Edited',`Edited user: ${name}`,'amber');
+  } else {
+    users.push({id:uid(),name,username,email:document.getElementById('u_email').value,phone:document.getElementById('u_phone').value,role:document.getElementById('u_role').value,password:pass,color:COLORS[users.length%COLORS.length]});
+    logActivity('User Added',`Added user: ${name}`,'green');
+    teamMembers.push(name);
+  }
+  save(); closeUserModal(); renderUsers(); populateAssignedDropdowns();
+  if(currentUser&&editingUserIdx!==null&&users[editingUserIdx]?.id===currentUser.id){ currentUser=users[editingUserIdx]; sessionStorage.setItem('tft_session',JSON.stringify(currentUser)); updateHeaderUser(); }
+}
+
+function deleteUser(idx){
+  if(users[idx].id===currentUser?.id){ alert("You can't delete your own account."); return; }
+  openDeleteModal(`Delete user "${users[idx].name}"?`, ()=>{
+    const name=users[idx].name;
+    users.splice(idx,1);
+    logActivity('User Deleted',`Deleted user: ${name}`,'red');
+    save(); renderUsers();
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════
+// SETTINGS
+// ═══════════════════════════════════════════════════════════════
+function renderSettings(){
+  const el=document.getElementById('teamMembersList');
+  el.innerHTML=`<div style="display:flex;flex-direction:column;gap:8px">${teamMembers.map((m,i)=>`<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 12px;background:var(--ltgry);border-radius:8px;font-size:13px"><span>${m}</span><button class="btn-icon" style="color:var(--dkred)" onclick="removeTeamMember(${i})">✕</button></div>`).join('')}</div>`;
+  renderTaskTypesList();
+}
+
+function renderTaskTypesList(){
+  const el=document.getElementById('taskTypesList');
+  if(!el) return;
+  const locked=['Full Accounts','CS-01'];  // always shown as core but still removable with warning
+  el.innerHTML=TASKS.map((t,i)=>{
+    const isFirst = i===0;
+    const moveUpBtn = i>0 ? `<button class="btn-icon" style="font-size:11px;padding:3px 7px" onclick="moveTaskUp(${i})" title="Move up">↑</button>` : `<button class="btn-icon" style="font-size:11px;padding:3px 7px;opacity:0.3" disabled>↑</button>`;
+    const moveDnBtn = i<TASKS.length-1 ? `<button class="btn-icon" style="font-size:11px;padding:3px 7px" onclick="moveTaskDown(${i})" title="Move down">↓</button>` : `<button class="btn-icon" style="font-size:11px;padding:3px 7px;opacity:0.3" disabled>↓</button>`;
+    return `<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 12px;background:var(--ltgry);border-radius:8px;font-size:13px">
+      <span style="font-weight:500;color:var(--navy)">${t}</span>
+      <div style="display:flex;gap:6px;align-items:center">
+        ${moveUpBtn}${moveDnBtn}
+        <button class="btn-icon" style="color:var(--dkred)" onclick="removeTaskType(${i})" title="Remove task">✕</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function addTaskType(){
+  const inp=document.getElementById('newTaskInput');
+  const msg=document.getElementById('taskTypeMsg');
+  const val=inp.value.trim();
+  if(!val){ if(msg){msg.textContent='Please enter a task name.';msg.style.color='var(--amber)'} return; }
+  if(TASKS.includes(val)){ if(msg){msg.textContent='Task already exists.';msg.style.color='var(--amber)'} return; }
+  TASKS.push(val);
+  // Add default statuses for the new task
+  STATUS_OPTS[val]=['Not Yet Started','In Process','Internal Review','Completed','Not Applicable'];
+  inp.value='';
+  if(msg){msg.textContent='✅ Task "'+val+'" added!';msg.style.color='var(--green)';setTimeout(()=>msg.textContent='',3000);}
+  save(); renderTaskTypesList(); buildTaskForm();
+  logActivity('Task Added','Main task added: '+val,'green');
+}
+
+function removeTaskType(idx){
+  const name=TASKS[idx];
+  openDeleteModal(`Remove task type "${name}"? It will no longer appear on new/edited companies. Existing data is preserved.`, ()=>{
+    TASKS.splice(idx,1);
+    const msg=document.getElementById('taskTypeMsg');
+    if(msg){msg.textContent='Task "'+name+'" removed.';msg.style.color='var(--muted)';setTimeout(()=>msg.textContent='',3000);}
+    save(); renderTaskTypesList(); buildTaskForm();
+    logActivity('Task Removed','Main task removed: '+name,'amber');
+  });
+}
+
+function moveTaskUp(idx){
+  if(idx===0) return;
+  [TASKS[idx-1],TASKS[idx]]=[TASKS[idx],TASKS[idx-1]];
+  save(); renderTaskTypesList(); buildTaskForm();
+}
+function moveTaskDown(idx){
+  if(idx>=TASKS.length-1) return;
+  [TASKS[idx],TASKS[idx+1]]=[TASKS[idx+1],TASKS[idx]];
+  save(); renderTaskTypesList(); buildTaskForm();
+}
+
+function addTeamMember(){
+  const val=document.getElementById('newMemberInput').value.trim();
+  if(!val) return;
+  if(teamMembers.includes(val)){ alert('Already in list'); return; }
+  teamMembers.push(val);
+  document.getElementById('newMemberInput').value='';
+  save(); renderSettings(); populateAssignedDropdowns();
+}
+
+function removeTeamMember(idx){
+  openDeleteModal(`Remove "${teamMembers[idx]}" from team?`, ()=>{
+    teamMembers.splice(idx,1); save(); renderSettings(); populateAssignedDropdowns();
+  });
+}
+
+function clearAllData(){
+  openDeleteModal('CLEAR ALL DATA? This will delete all companies, mails, and activity. This cannot be undone!', ()=>{
+    companies=[]; completed=[]; mails=[]; activityLog=[];
+    save(); renderDashboard(); renderActive(); renderCompleted(); renderMail(); renderActivity(); refreshCounts();
+    alert('All data cleared.');
+  });
+  document.getElementById('confirmDeleteBtn').textContent='Yes, Clear All';
+  document.getElementById('confirmDeleteBtn').style.background='var(--red)';
+}
+
+function resetToSeedData(){
+  openDeleteModal('Reset to original Excel data? Current changes will be lost.', ()=>{
+    companies=[...SEED_COMPANIES]; completed=[...SEED_COMPLETED]; mails=[]; activityLog=[]; teamMembers=[...SEED_TEAM]; TASKS.length=0; DEFAULT_TASKS.forEach(t=>TASKS.push(t));
+    save(); renderDashboard(); renderActive(); renderCompleted(); renderMail(); populateAssignedDropdowns(); refreshCounts();
+    logActivity('Data Reset','Reset to original Excel data','amber');
+    alert('✅ Restored to original Excel data!');
+  });
+  document.getElementById('confirmDeleteBtn').textContent='Yes, Reset';
+  document.getElementById('confirmDeleteBtn').style.background='var(--amber)';
+}
+
+// ═══════════════════════════════════════════════════════════════
+// ACTIVITY LOG
+// ═══════════════════════════════════════════════════════════════
+function renderActivity(){
+  const fs=document.getElementById('actFilter')?.value||'';
+  let data=activityLog.filter(a=>!fs||a.type===fs);
+  const el=document.getElementById('activityList');
+  if(!data.length){ el.innerHTML='<div style="padding:20px;color:var(--muted);font-size:13px">No activity logged yet.</div>'; return; }
+  el.innerHTML=data.slice(0,100).map(a=>{
+    const dotC={green:'green',red:'red',amber:'amber'}[a.color]||'';
+    return `<div class="activity-item"><div class="activity-dot ${dotC}"></div><div style="flex:1"><div style="font-size:13px">${a.msg}</div><div style="color:var(--muted);font-size:11px">${a.user} · ${fmtDateTime(a.time)} · <span class="badge b-gray" style="font-size:10px">${a.type}</span></div></div></div>`;
+  }).join('');
+}
+
+function clearActivity(){
+  openDeleteModal('Clear all activity log entries?', ()=>{ activityLog=[]; save(); renderActivity(); });
+}
+
+// ═══════════════════════════════════════════════════════════════
+// PROFILE
+// ═══════════════════════════════════════════════════════════════
+function renderProfile(){
+  const u=currentUser;
+  if(!u){ document.getElementById('profileForm').innerHTML='<div class="empty">Not logged in</div>'; return; }
+  document.getElementById('profileForm').innerHTML=`
+    <div style="display:flex;align-items:center;gap:16px;margin-bottom:24px">
+      <div style="width:60px;height:60px;border-radius:50%;background:${u.color||'#2E75B6'};display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:700;color:white">${u.name.split(' ').map(n=>n[0]).join('').slice(0,2).toUpperCase()}</div>
+      <div><div style="font-size:16px;font-weight:600;color:var(--navy)">${u.name}</div><div style="font-size:12px;color:var(--muted)">@${u.username} · ${u.role==='admin'?'👑 Administrator':'👤 Team Member'}</div></div>
+    </div>
+    <div class="form-grid two">
+      <div class="form-group"><label>Full Name</label><input type="text" id="p_name" value="${u.name}"></div>
+      <div class="form-group"><label>Username</label><input type="text" id="p_username" value="${u.username}"></div>
+      <div class="form-group"><label>Email</label><input type="email" id="p_email" value="${u.email||''}"></div>
+      <div class="form-group"><label>Phone</label><input type="tel" id="p_phone" value="${u.phone||''}"></div>
+      <div class="form-group"><label>New Password (leave blank to keep)</label><input type="password" id="p_pass" placeholder="New password…"></div>
+    </div>
+    <div style="margin-top:16px;display:flex;gap:10px">
+      <button class="btn-primary" onclick="saveProfile()">💾 Save Profile</button>
+    </div>
+    <div id="profileMsg" style="margin-top:10px;font-size:12px"></div>
+  `;
+}
+
+function saveProfile(){
+  const name=document.getElementById('p_name').value.trim();
+  const username=document.getElementById('p_username').value.trim().toLowerCase();
+  const pass=document.getElementById('p_pass').value;
+  const msg=document.getElementById('profileMsg');
+  if(!name||!username){ msg.textContent='Name and username required.'; msg.style.color='var(--dkred)'; return; }
+  const idx=users.findIndex(u=>u.id===currentUser.id);
+  if(idx===-1) return;
+  const dup=users.find((u,i)=>u.username===username&&i!==idx);
+  if(dup){ msg.textContent='Username already taken.'; msg.style.color='var(--dkred)'; return; }
+  users[idx].name=name; users[idx].username=username;
+  users[idx].email=document.getElementById('p_email').value;
+  users[idx].phone=document.getElementById('p_phone').value;
+  if(pass&&pass.length>=4) users[idx].password=pass;
+  currentUser=users[idx]; sessionStorage.setItem('tft_session',JSON.stringify(currentUser));
+  save(); updateHeaderUser(); populateAssignedDropdowns();
+  msg.textContent='✅ Profile saved!'; msg.style.color='var(--green)';
+}
+
+// ═══════════════════════════════════════════════════════════════
+// EXPORT / IMPORT
+// ═══════════════════════════════════════════════════════════════
+function exportCSV(){
+  const taskHeaders = TASKS.flatMap(t=>[`${t} Status`,`${t} Period`,`${t} Due`]);
+  const rows=[['Company','Co Number','Type','Priority','Yr End','Assigned To','Client','Client Email','Ref',...taskHeaders,'Progress%','Notes']];
+  companies.forEach(c=>{
+    const taskData = TASKS.flatMap(t=>[c.tasks[t]?.status||'',c.tasks[t]?.period||'',c.tasks[t]?.due||'']);
+    rows.push([c.name,c.compno,c.comptype,c.priority,c.yearend,c.assigned,c.client,c.clientemail,c.ref,
+      ...taskData, progressOf(c)+'%', c.notes]);
+  });
+  const csv=rows.map(r=>r.map(v=>'"'+(v||'').toString().replace(/"/g,'""')+'"').join(',')).join('\n');
+  const a=document.createElement('a'); a.href='data:text/csv;charset=utf-8,'+encodeURIComponent(csv);
+  a.download='Team_File_Tracker_'+today()+'.csv'; a.click();
+  logActivity('Exported','Exported CSV data');
+}
+
+function exportJSON(){
+  const data={companies,completed,mails,teamMembers,exportedAt:new Date().toISOString(),exportedBy:currentUser?.name};
+  const a=document.createElement('a'); a.href='data:application/json;charset=utf-8,'+encodeURIComponent(JSON.stringify(data,null,2));
+  a.download='TFT_Backup_'+today()+'.json'; a.click();
+  logActivity('Exported','Exported JSON backup');
+}
+
+function exportMailCSV(){
+  const rows=[['Company','Task','Type','Details','Date Sent','Follow-up Due','Status','Logged By']];
+  mails.forEach(m=>rows.push([m.company,m.task||'',m.type,m.details||'',m.date,m.followup||'',m.status,m.loggedBy||'']));
+  const csv=rows.map(r=>r.map(v=>'"'+(v||'').toString().replace(/"/g,'""')+'"').join(',')).join('\n');
+  const a=document.createElement('a'); a.href='data:text/csv;charset=utf-8,'+encodeURIComponent(csv);
+  a.download='TFT_Mail_'+today()+'.csv'; a.click();
+  logActivity('Exported','Exported Mail CSV');
+}
+
+function importJSON(){
+  const file=document.getElementById('importFile').files[0];
+  if(!file) return;
+  const reader=new FileReader();
+  reader.onload=e=>{
+    try{
+      const data=JSON.parse(e.target.result);
+      if(!data.companies) throw new Error('Invalid backup file');
+      if(!confirm(`Import will REPLACE current data with backup from ${data.exportedAt||'unknown date'}. Continue?`)) return;
+      companies=data.companies||[]; completed=data.completed||[]; mails=data.mails||[]; teamMembers=data.teamMembers||teamMembers;
+      save(); renderDashboard(); renderActive(); renderCompleted(); renderMail(); refreshCounts(); populateAssignedDropdowns();
+      logActivity('Imported','Imported JSON backup','amber');
+      document.getElementById('importMsg').innerHTML='<span style="color:var(--green)">✅ Import successful!</span>';
+    } catch(err){ document.getElementById('importMsg').innerHTML=`<span style="color:var(--dkred)">❌ Error: ${err.message}</span>`; }
+  };
+  reader.readAsText(file);
+}
+
+// ═══════════════════════════════════════════════════════════════
+// REFRESH / INIT
+// ═══════════════════════════════════════════════════════════════
+
+// ═══════════════════════════════════════════════════════════════
+// USER EDIT MODAL (tasks + notes only)
+// ═══════════════════════════════════════════════════════════════
+let userEditIdx = null;
+
+function openUserEdit(idx){
+  userEditIdx = idx;
+  const c = companies[idx];
+  document.getElementById('userEditTitle').textContent = 'Update: ' + c.name;
+  document.getElementById('userEditCompanyInfo').innerHTML = `
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;font-size:12px">
+      <div><span style="color:var(--muted)">Company No</span><br><strong>${c.compno||'—'}</strong></div>
+      <div><span style="color:var(--muted)">Year End</span><br><strong>${fmtDate(c.yearend)}</strong></div>
+      <div><span style="color:var(--muted)">Assigned To</span><br><strong>${c.assigned||'—'}</strong></div>
+    </div>`;
+
+  // Render task status selectors — check if user has full access grant
+  const grant = (c.accessGrants||[]).find(g=>g.userId===currentUser?.id);
+  const hasFullAccess = grant?.level==='full';
+
+  document.getElementById('userEditTasks').innerHTML = TASKS.map(t => {
+    const taskKey=t.replace(/\s/g,'_');
+    const saved=c.tasks[t]||{};
+    const cur=saved.status||'Not Yet Started';
+    const isNA=saved.enabled===false||cur==='Not Applicable'||cur==='N/A';
+    const due=saved.due||''; const period=saved.period||'';
+    return `<div style="border:1px solid var(--border);border-radius:8px;padding:12px;${isNA?'opacity:0.5':''}">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:7px">
+        <span style="font-size:11px;font-weight:600;color:var(--navy)">${t}</span>
+        ${hasFullAccess?`<label style="display:flex;align-items:center;gap:4px;font-size:10px;color:var(--muted);cursor:pointer">
+          <input type="checkbox" id="ue_en_${taskKey}" ${!isNA?'checked':''} onchange="toggleUserEditTask('${taskKey}')">Enable</label>`
+          :`<span style="font-size:9px;padding:1px 6px;background:${isNA?'var(--dgray)':'var(--ltgrn)'};color:${isNA?'var(--gray)':'var(--dkgrn)'};border-radius:8px">${isNA?'Disabled':'Active'}</span>`}
+      </div>
+      ${period?`<div style="font-size:10px;color:var(--muted);margin-bottom:5px">📌 ${period}</div>`:''}
+      ${due?`<div style="font-size:10px;color:var(--muted);margin-bottom:5px">📅 Due: ${fmtDate(due)}</div>`:''}
+      <div id="ue_body_${taskKey}" style="${isNA?'pointer-events:none;opacity:0.55':''}">
+        <select id="ue_status_${taskKey}" style="width:100%;font-size:12px;padding:5px 8px;border:1px solid var(--border);border-radius:6px">
+          ${(STATUS_OPTS[t]||['Not Yet Started','In Process','Internal Review','Completed','Not Applicable']).map(s=>`<option${cur===s?' selected':''}>${s}</option>`).join('')}
+        </select>
+        ${hasFullAccess?`<div style="margin-top:6px;display:grid;grid-template-columns:1fr 1fr;gap:6px">
+          <input type="text" id="ue_period_${taskKey}" value="${period}" placeholder="Period" style="font-size:11px;padding:4px 8px;border:1px solid var(--border);border-radius:6px">
+          <input type="date" id="ue_due_${taskKey}" value="${due}" style="font-size:11px;padding:4px 8px;border:1px solid var(--border);border-radius:6px">
+        </div>`:''}
+      </div>
+    </div>`;
+  }).join('');
+  document.getElementById('userEditNotes').value = c.notes || '';
+
+  // Show access level badge
+  if(grant){
+    document.querySelector('#userEditModal .info-bar').innerHTML = 
+      `🔑 <strong>Elevated Access Granted</strong> — ${grant.level==='full'?'Full edit access granted by Admin':'Tasks & Notes access'} · <span style="color:var(--muted);font-size:11px">Granted by ${grant.grantedBy}</span>`;
+  } else {
+    document.querySelector('#userEditModal .info-bar').innerHTML = 
+      `👤 <strong>User View</strong> — You can update task statuses and notes. Contact Admin for full edits.`;
+  }
+
+  document.getElementById('userEditModal').classList.add('open');
+}
+
+function toggleUserEditTask(k){
+  const chk=document.getElementById('ue_en_'+k);
+  const body=document.getElementById('ue_body_'+k);
+  const on=chk?.checked;
+  if(body){body.style.pointerEvents=on?'auto':'none';body.style.opacity=on?'1':'0.55';}
+  const sel=document.getElementById('ue_status_'+k);
+  if(sel&&!on) sel.value='Not Applicable';
+}
+function closeUserEdit(){ document.getElementById('userEditModal').classList.remove('open'); userEditIdx=null; }
+
+function saveUserEdit(){
+  if(userEditIdx===null) return;
+  const c = companies[userEditIdx];
+  const grant = (c.accessGrants||[]).find(g=>g.userId===currentUser?.id);
+  const hasFullAccess = grant?.level==='full';
+
+  const changes = [];
+  TASKS.forEach(t=>{
+    const taskKey=t.replace(/\s/g,'_');
+    if(!c.tasks[t]) c.tasks[t]={};
+    const oldStatus=c.tasks[t].status||'';
+    if(hasFullAccess){
+      const enChk=document.getElementById('ue_en_'+taskKey);
+      if(enChk){
+        c.tasks[t].enabled=enChk.checked;
+        if(!enChk.checked){c.tasks[t].status='Not Applicable';c.tasks[t].period='';c.tasks[t].due='';return;}
+      }
+      const np=document.getElementById('ue_period_'+taskKey)?.value||'';
+      const nd=document.getElementById('ue_due_'+taskKey)?.value||'';
+      if(np!==(c.tasks[t].period||'')) c.tasks[t].period=np;
+      if(nd!==(c.tasks[t].due||'')) c.tasks[t].due=nd;
+    }
+    const newStatus=document.getElementById('ue_status_'+taskKey)?.value||'';
+    if(newStatus&&newStatus!==oldStatus){changes.push(`${t}: "${oldStatus}" → "${newStatus}"`);c.tasks[t].status=newStatus;}
+  });
+  const newNotes = document.getElementById('userEditNotes').value;
+  if(newNotes !== (c.notes||'')) changes.push('Notes updated');
+  c.notes = newNotes;
+  c.updatedBy = currentUser?.name;
+  c.updatedAt = new Date().toISOString();
+
+  companies[userEditIdx] = c;
+  save();
+  if(changes.length) logActivity('Company Edited', `${currentUser?.name} updated ${c.name}: ${changes.join('; ')}`, 'amber');
+  closeUserEdit();
+  renderActive();
+  refreshCounts();
+}
+
+// ═══════════════════════════════════════════════════════════════
+// GRANT ACCESS (Admin only)
+// ═══════════════════════════════════════════════════════════════
+let grantAccessIdx = null;
+
+function openGrantAccess(idx){
+  if(currentUser?.role !== 'admin') return;
+  grantAccessIdx = idx;
+  const c = companies[idx];
+  document.getElementById('grantCompanyName').textContent = c.name;
+  const userOpts = users.filter(u=>u.role!=='admin').map(u=>`<option value="${u.id}">${u.name} (@${u.username})</option>`).join('');
+  document.getElementById('grantUserId').innerHTML = '<option value="">Select user…</option>' + userOpts;
+  document.getElementById('grantMsg').textContent = '';
+
+  // Show existing grants
+  const grants = c.accessGrants || [];
+  if(grants.length){
+    document.getElementById('grantMsg').innerHTML = `<div style="background:var(--ltblue);padding:8px 12px;border-radius:6px;margin-top:8px">
+      <strong>Existing grants:</strong><br>
+      ${grants.map(g=>`${g.userName} — ${g.level} 
+        <button onclick="revokeAccess(${idx},'${g.userId}')" style="font-size:10px;color:var(--dkred);background:none;border:none;cursor:pointer;margin-left:8px">✕ Revoke</button>`).join('<br>')}
+    </div>`;
+  }
+  document.getElementById('grantAccessModal').classList.add('open');
+}
+
+function closeGrantAccess(){ document.getElementById('grantAccessModal').classList.remove('open'); grantAccessIdx=null; }
+
+function saveGrantAccess(){
+  const userId = document.getElementById('grantUserId').value;
+  const level = document.getElementById('grantLevel').value;
+  const msg = document.getElementById('grantMsg');
+  if(!userId){ msg.textContent='Select a user.'; msg.style.color='var(--dkred)'; return; }
+  const c = companies[grantAccessIdx];
+  if(!c.accessGrants) c.accessGrants = [];
+  const user = users.find(u=>u.id===userId);
+  // Remove old grant for same user
+  c.accessGrants = c.accessGrants.filter(g=>g.userId!==userId);
+  c.accessGrants.push({ userId, userName:user?.name||'?', level, grantedBy:currentUser?.name, grantedAt:new Date().toISOString() });
+  companies[grantAccessIdx] = c;
+  save();
+  logActivity('Access Granted', `Granted ${level} access to ${user?.name} for ${c.name}`, 'amber');
+  msg.innerHTML = `<span style="color:var(--green)">✅ Access granted to ${user?.name}!</span>`;
+}
+
+function revokeAccess(idx, userId){
+  const c = companies[idx];
+  const user = (c.accessGrants||[]).find(g=>g.userId===userId);
+  c.accessGrants = (c.accessGrants||[]).filter(g=>g.userId!==userId);
+  companies[idx] = c;
+  save();
+  logActivity('Access Revoked', `Revoked access from ${user?.userName||userId} for ${c.name}`, 'red');
+  openGrantAccess(idx); // refresh modal
+}
+
+// role banner now merged into renderDashboard directly
+
+
+// ═══════════════════════════════════════════════════════════════
+// BULK ASSIGN
+// ═══════════════════════════════════════════════════════════════
+let _bulkAssignFiltered = [];
+function openBulkAssign(){
+  if(currentUser?.role!=='admin') return;
+  // Get currently filtered companies
+  const q   = (document.getElementById('searchInput')?.value||'').toLowerCase();
+  const fa  = document.getElementById('filterAssigned')?.value||'';
+  const ft  = document.getElementById('filterTask')?.value||'';
+  const fs  = document.getElementById('filterStatus')?.value||'';
+  const fty = document.getElementById('filterType')?.value||'';
+  _bulkAssignFiltered = companies.filter(c=>{
+    if(q && !c.name.toLowerCase().includes(q) && !(c.assigned||'').toLowerCase().includes(q)) return false;
+    if(fa && c.assigned!==fa) return false;
+    if(fty && c.comptype!==fty) return false;
+    if(ft && fs && c.tasks[ft]?.status!==fs) return false;
+    if(ft && !fs && !c.tasks[ft]) return false;
+    if(!ft && fs && !TASKS.some(t=>c.tasks[t]?.status===fs)) return false;
+    return true;
+  });
+  const sel = document.getElementById('bulkAssignTarget');
+  sel.innerHTML = '<option value="">Select team member…</option>' + teamMembers.map(m=>`<option>${m}</option>`).join('');
+  document.getElementById('bulkAssignCount').textContent = `This will reassign ${_bulkAssignFiltered.length} company file${_bulkAssignFiltered.length!==1?'s':''}.`;
+  document.getElementById('bulkAssignModal').classList.add('open');
+}
+function closeBulkAssign(){ document.getElementById('bulkAssignModal').classList.remove('open'); _bulkAssignFiltered=[]; }
+function saveBulkAssign(){
+  const target = document.getElementById('bulkAssignTarget').value;
+  if(!target){ alert('Select a team member.'); return; }
+  _bulkAssignFiltered.forEach(c=>{ c.assigned=target; c.updatedBy=currentUser?.name; c.updatedAt=new Date().toISOString(); });
+  logActivity('Bulk Assign',`Bulk assigned ${_bulkAssignFiltered.length} companies to ${target}`,'amber');
+  save(); closeBulkAssign(); renderActive();
+}
+
+function refreshCounts(){
+  const oc=overdueCount();
+  document.getElementById('overdueCount').textContent=oc||'';
+  const mc=mails.filter(m=>m.status==='Pending Reply'||m.status==='No Response').length;
+  document.getElementById('mailCount').textContent=mc||'';
+}
+
+document.getElementById('todayBadge').textContent=new Date().toLocaleDateString('en-GB',{weekday:'short',day:'numeric',month:'short',year:'numeric'});
+
+// ═══════════════════════════════════════════════════════════════
+// COMPANIES HOUSE API INTEGRATION
+// ═══════════════════════════════════════════════════════════════
+const CH_DEFAULT_API_KEY = '0b4eac59-f723-4024-8825-c4a5ca2d97f7';
+function getCHApiKey(){ return localStorage.getItem('chApiKey')||CH_DEFAULT_API_KEY; }
+
+function saveCHApiKey(){
+  const key = document.getElementById('chApiKeyInput')?.value.trim();
+  if(!key){ alert('Please enter an API key.'); return; }
+  localStorage.setItem('chApiKey', key);
+  const s = document.getElementById('chApiKeyStatus');
+  if(s){ s.textContent='✅ API key saved!'; s.style.color='var(--green)'; setTimeout(()=>s.textContent='',3000); }
+}
+
+// Pre-fill API key field when Settings page opens
+const _origShowPage = showPage;
+// Patch: load CH key into input when settings renders
+function loadCHKeyIntoSettings(){
+  const el = document.getElementById('chApiKeyInput');
+  if(el){ const k=getCHApiKey(); if(k) el.value=k; }
+}
+// Hook into nav click for settings
+document.querySelectorAll('nav button').forEach(btn=>{
+  if(btn.getAttribute('onclick')&&btn.getAttribute('onclick').includes('settings')){
+    btn.addEventListener('click', ()=>setTimeout(loadCHKeyIntoSettings,50));
+  }
+});
+
+// Map Companies House company type → our dropdown values
+function mapCHType(chType){
+  if(!chType) return null;
+  const t = chType.toLowerCase();
+  if(t.includes('limited') || t.includes('ltd') || t.includes('private-limited')) return 'Ltd Company';
+  if(t.includes('llp') || t.includes('limited-liability')) return 'LLP';
+  if(t.includes('sole') || t.includes('trader')) return 'Sole Trader';
+  if(t.includes('partnership')) return 'Partnership';
+  if(t.includes('charit') || t.includes('community-interest')) return 'Charity';
+  return 'Other';
+}
+
+// Convert CH accounts month/day to yyyy-MM-dd (using current or next year end)
+function buildYearEnd(month, day){
+  if(!month||!day) return '';
+  const m = String(month).padStart(2,'0');
+  const d = String(day).padStart(2,'0');
+  const today = new Date();
+  const thisYear = today.getFullYear();
+  // Try this year; if already past, use next year
+  const candidate = new Date(`${thisYear}-${m}-${d}`);
+  const yearEnd = candidate >= today ? thisYear : thisYear + 1;
+  return `${yearEnd}-${m}-${d}`;
+}
+
+let _chDebounce=null;
+function onCompNoInput(val){
+  const clean = val.replace(/\s/g,'').toUpperCase();
+  const s = document.getElementById('chStatus');
+  if(s){ s.textContent=''; }
+  clearTimeout(_chDebounce);
+
+  // Show digit count hint while typing
+  if(clean && /^\d+$/.test(clean) && clean.length < 8){
+    if(s){ s.textContent=`${clean.length}/8 digits`; s.style.color='var(--muted)'; }
+  }
+
+  // Only auto-trigger when EXACTLY 8 pure digits OR valid prefix format (SC/NI + 6-8 digits)
+  const isExact8 = /^\d{8}$/.test(clean);
+  const isPrefixed = /^(SC|NI|OC|SO|NC|R0)\d{6,8}$/i.test(clean);
+
+  if(isExact8 || isPrefixed){
+    // Debounce 400ms so fast pasting doesn't double-fire
+    _chDebounce = setTimeout(()=>{ lookupCompaniesHouse(); }, 400);
+  }
+}
+
+async function lookupCompaniesHouse(){
+  const apiKey = getCHApiKey();
+  const compNoRaw = document.getElementById('f_compno')?.value.trim();
+  const status = document.getElementById('chStatus');
+
+  if(!compNoRaw){ if(status){ status.textContent='Enter a company number first.'; status.style.color='var(--amber)'; } return; }
+
+  // Pad only if pure numeric AND less than 8 digits; 8-digit numbers are used as-is
+  const compNo = /^\d+$/.test(compNoRaw) && compNoRaw.length < 8
+    ? compNoRaw.padStart(8,'0')
+    : compNoRaw.toUpperCase();
+  document.getElementById('f_compno').value = compNo;
+
+  if(!apiKey){
+    if(status){
+      status.innerHTML = '⚠️ No API key set. <a href="#" onclick="showPage(\'settings\',null)" style="color:var(--blue)">Add it in Settings →</a>';
+      status.style.color='var(--amber)';
+    }
+    return;
+  }
+
+  if(status){ status.textContent='⏳ Looking up…'; status.style.color='var(--blue)'; }
+  const btn = document.getElementById('chLookupBtn');
+  if(btn){ btn.disabled=true; btn.textContent='⏳'; }
+
+  try {
+    // Companies House REST API — Basic auth: apiKey as username, empty password
+    const creds = btoa(apiKey + ':');
+    const res = await fetch(`https://api.company-information.service.gov.uk/company/${encodeURIComponent(compNo)}`, {
+      headers: { 'Authorization': 'Basic ' + creds }
+    });
+
+    if(res.status===404){
+      if(status){ status.textContent='❌ Company not found. Check the number and try again.'; status.style.color='var(--dkred)'; }
+      return;
+    }
+    if(res.status===401){
+      if(status){ status.innerHTML='🔑 Invalid API key. <a href="#" onclick="showPage(\'settings\',null)" style="color:var(--blue)">Update in Settings →</a>'; status.style.color='var(--dkred)'; }
+      return;
+    }
+    if(!res.ok){
+      if(status){ status.textContent=`❌ API error (${res.status}). Try again.`; status.style.color='var(--dkred)'; }
+      return;
+    }
+
+    const data = await res.json();
+
+    // ── Fill in fields ──
+    const nameEl = document.getElementById('f_company');
+    if(nameEl){
+      const prev = nameEl.value.trim();
+      nameEl.value = data.company_name || prev;
+      // Briefly highlight the filled field
+      nameEl.style.background='#C6EFCE'; nameEl.style.transition='background 1.5s';
+      setTimeout(()=>{ nameEl.style.background=''; }, 1500);
+    }
+
+    // Company Type
+    const typeEl = document.getElementById('f_comptype');
+    if(typeEl){
+      const mapped = mapCHType(data.type);
+      if(mapped){
+        typeEl.value = mapped;
+        // If option not found, fallback to Other
+        if(!typeEl.value) typeEl.value='Other';
+      }
+    }
+
+    // Accounts Year End
+    const acc = data.accounts?.accounting_reference_date;
+    if(acc){
+      const ye = buildYearEnd(acc.month, acc.day);
+      const yeEl = document.getElementById('f_yearend');
+      if(yeEl && ye) yeEl.value = ye;
+    }
+
+    // Registered address → notes if notes empty
+    const addr = data.registered_office_address;
+    if(addr){
+      const addrStr = [addr.address_line_1, addr.address_line_2, addr.locality, addr.postal_code].filter(Boolean).join(', ');
+      const notesEl = document.getElementById('f_notes');
+      if(notesEl && !notesEl.value.trim() && addrStr){
+        notesEl.value = `Registered address: ${addrStr}`;
+      }
+    }
+
+    // SIC codes as a hint
+    const sics = (data.sic_codes||[]).join(', ');
+    const compStatus = data.company_status||'unknown';
+    const statusColor = compStatus==='active' ? 'var(--green)' : compStatus==='dissolved' ? 'var(--dkred)' : 'var(--amber)';
+    const statusIcon  = compStatus==='active' ? '✅' : compStatus==='dissolved' ? '⛔' : '⚠️';
+    const statusMsg = `${statusIcon} ${data.company_name} · ${compStatus.toUpperCase()}${sics?' · SIC: '+sics:''}`;
+    if(status){ status.textContent=statusMsg; status.style.color=statusColor; }
+
+    logActivity('CH Lookup', `Companies House lookup: ${data.company_name} (${compNo})`, 'blue');
+
+  } catch(err){
+    if(status){ status.textContent='❌ Network error. Check your connection or API key.'; status.style.color='var(--dkred)'; }
+    console.error('CH lookup error:', err);
+  } finally {
+    if(btn){ btn.disabled=false; btn.textContent='🔍 Lookup'; }
+  }
+}
+</script>
+</body>
+</html>
